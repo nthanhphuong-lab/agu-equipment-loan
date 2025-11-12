@@ -1,10 +1,13 @@
 // ------- CONFIG -------
 // Thay bằng cấu hình Firebase Web App của bạn:
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyALw-kDEXZeKBQk__Mnfrqogb7vKuPu92w",
+  authDomain: "qltb-37efe.firebaseapp.com",
+  projectId: "qltb-37efe",
+  storageBucket: "qltb-37efe.firebasestorage.app",
+  messagingSenderId: "405387499869",
+  appId: "1:405387499869:web:78c8799d558f0acc4270b4",
+  measurementId: "G-QKQFMLZBD2"
 };
 
 // Domain cho phép:

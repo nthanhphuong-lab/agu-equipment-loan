@@ -24,6 +24,7 @@ const TEST_EMAILS = [
   "test2@local.test"
 ];
 
+
 // Helper: email được phép dùng app?
 function isAllowedEmail(email) {
   return email.endsWith("@agu.edu.vn") || TEST_EMAILS.includes(email);
@@ -93,6 +94,9 @@ const myLoans = document.getElementById("myLoans");
 
 const adminLoans = document.getElementById("adminLoans");
 const allLoans = document.getElementById("allLoans");
+const loanEqSelect = document.getElementById("loanEqSelect");
+const loanStart = document.getElementById("loanStart");
+const loanDue = document.getElementById("loanDue");
 
 let currentUser = null;
 let isAdmin = false;
@@ -243,9 +247,11 @@ btnAddEq.onclick = async () => {
 };
 
 // Load danh sách thiết bị cho cả admin & user
+
 async function refreshEquipmentLists() {
   equipmentList.innerHTML = "Đang tải...";
   equipmentListAdmin.innerHTML = "";
+  loanEqSelect.innerHTML = `<option value="">-- Chọn thiết bị --</option>`;
 
   const snap = await getDocs(collection(db, "equipment"));
   let htmlUser = "";
@@ -255,6 +261,8 @@ async function refreshEquipmentLists() {
     const d = docSnap.data();
     const id = docSnap.id;
     if (!d.is_active) return;
+
+    // Card hiển thị
     const line = `
       <div class="card">
         <div><strong>${d.name}</strong> (${d.code})</div>
@@ -264,37 +272,58 @@ async function refreshEquipmentLists() {
       </div>
     `;
     htmlUser += line;
+    if (isAdmin) htmlAdmin += line;
 
-    if (isAdmin) {
-      htmlAdmin += `
-        <div class="card">
-          <div><strong>${d.name}</strong> (${d.code})</div>
-          <div>Còn: ${d.quantity_available} / ${d.quantity_total}</div>
-          <div>ID: ${id}</div>
-          <div>${d.description || ""}</div>
-        </div>
-      `;
-    }
+    // Option cho dropdown mượn
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = `${d.name} (${d.code}) — còn ${d.quantity_available}/${d.quantity_total}`;
+    loanEqSelect.appendChild(opt);
   });
 
   equipmentList.innerHTML = htmlUser || "<p>Chưa có thiết bị.</p>";
   if (isAdmin) {
     equipmentListAdmin.innerHTML = htmlAdmin || "<p>Chưa có thiết bị.</p>";
   }
+
+  // set mặc định ngày mượn = hôm nay, hạn trả = +7 ngày nếu chưa chọn
+  const today = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const toInput = (dt) => `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+  if (!loanStart.value) loanStart.value = toInput(today);
+  if (!loanDue.value) {
+    const tmp = new Date(today);
+    tmp.setDate(tmp.getDate() + 7);
+    loanDue.value = toInput(tmp);
+  }
 }
 
+
 // ------- TẠO YÊU CẦU MƯỢN (USER) -------
+
 btnCreateLoan.onclick = async () => {
   if (!currentUser) {
     alert("Cần đăng nhập.");
     return;
   }
-  const eqId = loanEqId.value.trim();
+  const eqId = (loanEqSelect.value || "").trim();
   const qty = parseInt(loanQty.value, 10) || 0;
   const note = loanNote.value.trim();
+  const startStr = loanStart.value; // yyyy-mm-dd
+  const dueStr = loanDue.value;
 
   if (!eqId || qty <= 0) {
-    loanCreateMsg.textContent = "Nhập ID thiết bị và số lượng > 0.";
+    loanCreateMsg.textContent = "Chọn thiết bị và số lượng > 0.";
+    return;
+  }
+  if (!startStr || !dueStr) {
+    loanCreateMsg.textContent = "Chọn ngày mượn và ngày trả dự kiến.";
+    return;
+  }
+  const startDate = new Date(`${startStr}T00:00:00`);
+  const dueDate = new Date(`${dueStr}T23:59:59`);
+  if (startDate > dueDate) {
+    loanCreateMsg.textContent = "Ngày trả phải sau hoặc bằng ngày mượn.";
     return;
   }
 
@@ -315,7 +344,6 @@ btnCreateLoan.onclick = async () => {
     return;
   }
 
-  // Tạo phiếu ở trạng thái pending, không trừ tồn ngay
   await addDoc(collection(db, "loans"), {
     userId: currentUser.uid,
     userEmail: currentUser.email,
@@ -325,14 +353,24 @@ btnCreateLoan.onclick = async () => {
     note,
     status: "pending",
     createdAt: serverTimestamp(),
+
+    // yêu cầu thời gian
+    requestedStart: startDate, // Date sẽ được serialize thành Timestamp
+    requestedDue: dueDate,
+
+    // thời gian sau khi duyệt
     approvedBy: null,
     approvedAt: null,
+    startAt: null,
+    dueAt: null,
+
+    // trả
     returned: false,
     returnedAt: null,
     rejectedReason: null
   });
 
-  loanEqId.value = "";
+  loanEqSelect.value = "";
   loanQty.value = "";
   loanNote.value = "";
   loanCreateMsg.textContent = "Đã gửi yêu cầu mượn.";
@@ -340,6 +378,7 @@ btnCreateLoan.onclick = async () => {
   await refreshMyLoans();
   if (isAdmin) await refreshAllLoans();
 };
+
 
 // ------- XEM YÊU CẦU CỦA MÌNH -------
 async function refreshMyLoans() {
@@ -386,16 +425,38 @@ function renderLoanCard(id, d, adminView) {
   else if (d.status === "rejected") statusClass = "status-rejected";
   else if (d.returned) statusClass = "status-returned";
 
-  let adminButtons = "";
+  // Helper hiển thị ngày
+  const fmt = (ts) => {
+    if (!ts) return "";
+    const date = ts.toDate ? ts.toDate() : new Date(ts);
+    return date.toLocaleDateString();
+  };
+
+  // Input cho admin (duyệt + gia hạn + trả)
+  let adminControls = "";
   if (adminView && d.status === "pending") {
-    adminButtons += `
-      <button onclick="approveLoan('${id}')">Duyệt</button>
-      <button onclick="rejectLoan('${id}')">Từ chối</button>
+    const reqStart = fmt(d.requestedStart);
+    const reqDue = fmt(d.requestedDue);
+    adminControls += `
+      <div style="margin-top:6px">
+        <div><em>Người mượn đề xuất:</em> ${reqStart || "-"} → ${reqDue || "-"}</div>
+        <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
+        <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
+        <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
+        <button onclick="rejectLoan('${id}')">Từ chối</button>
+      </div>
     `;
   }
   if (adminView && d.status === "approved" && !d.returned) {
-    adminButtons += `
-      <button onclick="returnLoan('${id}')">Xác nhận trả</button>
+    adminControls += `
+      <div style="margin-top:6px">
+        <div><em>Đang mượn:</em> ${fmt(d.startAt) || "-"} → ${fmt(d.dueAt) || "-"}</div>
+        <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
+        <button onclick="extendLoan('${id}')">Gia hạn</button>
+        &nbsp; | &nbsp;
+        <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
+        <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
+      </div>
     `;
   }
 
@@ -407,17 +468,40 @@ function renderLoanCard(id, d, adminView) {
         Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}
       </div>
       <div>Ghi chú: ${d.note || ""}</div>
+
+      ${
+        d.requestedStart || d.requestedDue
+          ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>`
+          : ""
+      }
+      ${
+        d.startAt || d.dueAt
+          ? `<div>Được duyệt: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>`
+          : ""
+      }
       ${d.rejectedReason ? `<div>Lý do từ chối: ${d.rejectedReason}</div>` : ""}
-      ${adminButtons}
+      ${adminControls}
     </div>
   `;
 }
 
+
+
+
 // ------- ADMIN ACTIONS (Duyệt / Từ chối / Trả) -------
 // Lưu ý: đây là demo ở client; triển khai thật cần Firestore Security Rules xử lý logic này.
 
-window.approveLoan = async (loanId) => {
+// Duyệt: lấy ngày từ input, set startAt/dueAt, trừ tồn
+window.approveLoanWithDates = async (loanId) => {
   if (!isAdmin) return;
+
+  const s = document.getElementById(`ap_start_${loanId}`).value;
+  const d = document.getElementById(`ap_due_${loanId}`).value;
+  if (!s || !d) { alert("Chọn ngày bắt đầu và hạn trả."); return; }
+
+  const startAt = new Date(`${s}T00:00:00`);
+  const dueAt = new Date(`${d}T23:59:59`);
+  if (startAt > dueAt) { alert("Hạn trả phải sau ngày bắt đầu."); return; }
 
   const loanRef = doc(db, "loans", loanId);
   const loanSnap = await getDoc(loanRef);
@@ -426,22 +510,26 @@ window.approveLoan = async (loanId) => {
 
   if (loan.status !== "pending") return;
 
-  // Check tồn
   const eqRef = doc(db, "equipment", loan.equipmentId);
   const eqSnap = await getDoc(eqRef);
   if (!eqSnap.exists()) return;
   const eq = eqSnap.data();
+
   if (eq.quantity_available < loan.quantity) {
     alert("Không đủ số lượng để duyệt.");
     return;
   }
 
+  // cập nhật loan
   await updateDoc(loanRef, {
     status: "approved",
     approvedBy: currentUser.email,
-    approvedAt: serverTimestamp()
+    approvedAt: serverTimestamp(),
+    startAt: startAt,
+    dueAt: dueAt
   });
 
+  // trừ tồn
   await updateDoc(eqRef, {
     quantity_available: eq.quantity_available - loan.quantity
   });
@@ -450,25 +538,31 @@ window.approveLoan = async (loanId) => {
   await refreshEquipmentLists();
 };
 
-window.rejectLoan = async (loanId) => {
+// Gia hạn: cập nhật dueAt
+window.extendLoan = async (loanId) => {
   if (!isAdmin) return;
-  const reason = prompt("Lý do từ chối:");
+  const dueStr = document.getElementById(`extend_due_${loanId}`).value;
+  if (!dueStr) { alert("Chọn ngày gia hạn."); return; }
+  const newDue = new Date(`${dueStr}T23:59:59`);
+
   const loanRef = doc(db, "loans", loanId);
   const loanSnap = await getDoc(loanRef);
   if (!loanSnap.exists()) return;
   const loan = loanSnap.data();
-  if (loan.status !== "pending") return;
 
-  await updateDoc(loanRef, {
-    status: "rejected",
-    rejectedReason: reason || ""
-  });
+  if (loan.status !== "approved" || loan.returned) return;
 
+  await updateDoc(loanRef, { dueAt: newDue });
   await refreshAllLoans();
 };
 
-window.returnLoan = async (loanId) => {
+// Trả: cho phép chọn thời điểm trả (datetime-local)
+window.returnLoanWithTime = async (loanId) => {
   if (!isAdmin) return;
+
+  const input = document.getElementById(`ret_at_${loanId}`).value;
+  const returnedAt = input ? new Date(input) : new Date();
+
   const loanRef = doc(db, "loans", loanId);
   const loanSnap = await getDoc(loanRef);
   if (!loanSnap.exists()) return;
@@ -482,7 +576,7 @@ window.returnLoan = async (loanId) => {
 
   await updateDoc(loanRef, {
     returned: true,
-    returnedAt: serverTimestamp()
+    returnedAt: returnedAt
   });
 
   await updateDoc(eqRef, {

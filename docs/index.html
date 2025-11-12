@@ -62,12 +62,19 @@
     <h2>Danh sách thiết bị</h2>
     <div id="equipmentList"></div>
 
-    <h3>Tạo yêu cầu mượn</h3>
-    <input id="loanEqId" placeholder="ID thiết bị" />
-    <input id="loanQty" type="number" placeholder="Số lượng" />
-    <input id="loanNote" placeholder="Ghi chú" />
-    <button id="btnCreateLoan">Gửi yêu cầu</button>
-    <p id="loanCreateMsg"></p>
+   <h3>Tạo yêu cầu mượn</h3>
+<!-- Thiết bị: dropdown -->
+<select id="loanEqSelect">
+  <option value="">-- Chọn thiết bị --</option>
+</select>
+<input id="loanQty" type="number" placeholder="Số lượng" min="1" />
+<!-- Ngày mượn & ngày trả dự kiến -->
+<input id="loanStart" type="date" />
+<input id="loanDue" type="date" />
+<input id="loanNote" placeholder="Ghi chú" />
+<button id="btnCreateLoan">Gửi yêu cầu</button>
+<p id="loanCreateMsg"></p>
+
 
     <h3>Yêu cầu của tôi</h3>
     <div id="myLoans"></div>

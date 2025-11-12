@@ -1,89 +1,108 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <title>Quản lý mượn trả thiết bị - AGU</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; }
-    h1 { margin-bottom: 0; }
-    .hidden { display: none; }
-    .card { border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px; }
-    button { margin: 2px; }
-    .tag { font-size: 12px; padding: 2px 6px; border-radius: 3px; background: #eee; margin-left: 4px;}
-    .status-pending { color: #c77600; }
-    .status-approved { color: #007b00; }
-    .status-rejected { color: #c00000; }
-    .status-returned { color: #555; }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:980px;margin:24px auto;padding:0 12px;line-height:1.4}
+    h1{margin:0 0 8px}
+    .hidden{display:none}
+    .card{border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin:8px 0;background:#fff}
+    input,select,button{padding:6px 8px;margin:2px;border:1px solid #d1d5db;border-radius:8px}
+    button{cursor:pointer}
+    .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:6px}
+    .tag.user{background:#eee}
+    .tag.admin{background:#111;color:#fff}
+    .status-pending{color:#b45309}
+    .status-approved{color:#065f46}
+    .status-rejected{color:#991b1b}
+    .status-returned{color:#2563eb}
+    nav{margin:12px 0;display:flex;gap:8px;flex-wrap:wrap}
+    .tab-btn{padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#f8f8f8;cursor:pointer}
+    .tab-btn.active{background:#111;color:#fff}
+    .page{margin-top:8px}
+    .muted{color:#6b7280}
   </style>
 </head>
 <body>
   <h1>Quản lý mượn trả thiết bị - AGU</h1>
-  <p>Đăng nhập bằng tài khoản <strong>@agu.edu.vn</strong>. Dữ liệu lưu trên Firebase, chạy full trên GitHub Pages.</p>
+  <p class="muted">Đăng nhập bằng tài khoản <b>@agu.edu.vn</b>. Dữ liệu lưu trên Firebase, chạy full trên GitHub Pages.</p>
 
-  <!-- Khu vực login -->
+  <!-- Khu đăng nhập -->
   <div id="loginArea">
     <button id="btnGoogleLogin">Đăng nhập với Google @agu.edu.vn</button>
-    <p id="loginMessage"></p>
-  </div>
- <!-- ... trong <body> dưới khu login Google ... -->
-<div id="localLoginArea">
-  <h3>Đăng nhập local (test)</h3>
-  <input id="localEmail" placeholder="Email test (vd: test1@local.test)" />
-  <input id="localPass" type="password" placeholder="Mật khẩu" />
-  <button id="btnLocalSignup">Đăng ký test</button>
-  <button id="btnLocalLogin">Đăng nhập test</button>
-  <p id="localMsg"></p>
-</div>
+    <p id="loginMessage" class="status-rejected"></p>
 
-  <!-- Info user -->
+    <div id="localLoginArea" class="card" style="margin-top:12px;">
+      <h3>Đăng nhập local (test)</h3>
+      <input id="localEmail" placeholder="Email test (vd: test1@local.test)" />
+      <input id="localPass" type="password" placeholder="Mật khẩu" />
+      <button id="btnLocalSignup">Đăng ký test</button>
+      <button id="btnLocalLogin">Đăng nhập test</button>
+      <p id="localMsg" class="status-rejected"></p>
+    </div>
+  </div>
+
+  <!-- Thông tin người dùng -->
   <div id="userInfo" class="hidden">
-    <p>
-      Đang đăng nhập: <strong id="userEmail"></strong>
-      <span id="userRoleTag" class="tag"></span>
-      <button id="btnLogout">Đăng xuất</button>
-    </p>
+    Đang đăng nhập: <b id="userEmail"></b>
+    <span id="userRoleTag" class="tag user">USER</span>
+    <button id="btnLogout">Đăng xuất</button>
   </div>
 
-  <!-- Admin: quản lý thiết bị -->
-  <section id="adminEquipment" class="hidden">
-    <h2>Quản lý thiết bị (Admin)</h2>
-    <div>
+  <!-- MENU -->
+  <nav id="mainNav" class="hidden">
+    <button class="tab-btn admin-only" data-page="page-admin-eq">Quản lý thiết bị (Admin)</button>
+    <button class="tab-btn" data-page="page-devices">Danh sách thiết bị</button>
+    <button class="tab-btn" data-page="page-create-loan">Tạo yêu cầu mượn</button>
+    <button class="tab-btn" data-page="page-my-loans">Yêu cầu của tôi</button>
+    <button class="tab-btn admin-only" data-page="page-admin-loans">Quản lý yêu cầu mượn (Admin)</button>
+  </nav>
+
+  <!-- 1) Quản lý thiết bị (Admin) -->
+  <section id="page-admin-eq" class="page hidden">
+    <h3>Quản lý thiết bị (Admin)</h3>
+    <div id="adminEquipment">
       <input id="eqName" placeholder="Tên thiết bị" />
       <input id="eqCode" placeholder="Mã thiết bị" />
-      <input id="eqQty" type="number" placeholder="Số lượng" />
+      <input id="eqQty" type="number" placeholder="Số lượng" min="1" />
       <input id="eqDesc" placeholder="Mô tả" />
       <button id="btnAddEq">Thêm thiết bị</button>
+      <div id="equipmentListAdmin" style="margin-top:8px;"></div>
     </div>
-    <div id="equipmentListAdmin"></div>
   </section>
 
-  <!-- User: xem & mượn -->
-  <section id="userSection" class="hidden">
-    <h2>Danh sách thiết bị</h2>
+  <!-- 2) Danh sách thiết bị -->
+  <section id="page-devices" class="page hidden">
+    <h3>Danh sách thiết bị</h3>
     <div id="equipmentList"></div>
+  </section>
 
-   <h3>Tạo yêu cầu mượn</h3>
-<!-- Thiết bị: dropdown -->
-<select id="loanEqSelect">
-  <option value="">-- Chọn thiết bị --</option>
-</select>
-<input id="loanQty" type="number" placeholder="Số lượng" min="1" />
-<!-- Ngày mượn & ngày trả dự kiến -->
-<input id="loanStart" type="date" />
-<input id="loanDue" type="date" />
-<input id="loanNote" placeholder="Ghi chú" />
-<button id="btnCreateLoan">Gửi yêu cầu</button>
-<p id="loanCreateMsg"></p>
+  <!-- 3) Tạo yêu cầu mượn -->
+  <section id="page-create-loan" class="page hidden">
+    <h3>Tạo yêu cầu mượn</h3>
+    <select id="loanEqSelect"><option value="">-- Chọn thiết bị --</option></select>
+    <input id="loanQty" type="number" placeholder="Số lượng" min="1" />
+    <input id="loanStart" type="date" />
+    <input id="loanDue" type="date" />
+    <input id="loanNote" placeholder="Ghi chú" />
+    <button id="btnCreateLoan">Gửi yêu cầu</button>
+    <p id="loanCreateMsg" class="status-approved"></p>
+  </section>
 
-
+  <!-- 4) Yêu cầu của tôi -->
+  <section id="page-my-loans" class="page hidden">
     <h3>Yêu cầu của tôi</h3>
     <div id="myLoans"></div>
   </section>
 
-  <!-- Admin: duyệt yêu cầu -->
-  <section id="adminLoans" class="hidden">
-    <h2>Quản lý yêu cầu mượn (Admin)</h2>
-    <div id="allLoans"></div>
+  <!-- 5) Quản lý yêu cầu mượn (Admin) -->
+  <section id="page-admin-loans" class="page hidden">
+    <h3>Quản lý yêu cầu mượn (Admin)</h3>
+    <div id="adminLoans">
+      <div id="allLoans"></div>
+    </div>
   </section>
 
   <script type="module" src="./main.js"></script>

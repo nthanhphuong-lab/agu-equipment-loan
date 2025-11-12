@@ -29,6 +29,10 @@ function isAllowedEmail(email) {
   return email.endsWith("@agu.edu.vn") || TEST_EMAILS.includes(email);
 }
 
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
 // ------- INIT FIREBASE -------
 import {

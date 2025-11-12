@@ -120,6 +120,52 @@ btnLogout.onclick = async () => {
   await signOut(auth);
 };
 
+const localEmail = document.getElementById("localEmail");
+const localPass  = document.getElementById("localPass");
+const btnLocalSignup = document.getElementById("btnLocalSignup");
+const btnLocalLogin  = document.getElementById("btnLocalLogin");
+const localMsg = document.getElementById("localMsg");
+
+btnLocalSignup.onclick = async () => {
+  localMsg.textContent = "";
+  try {
+    const email = (localEmail.value || "").trim();
+    const pass  = localPass.value || "";
+    if (!email || !pass) {
+      localMsg.textContent = "Nhập email và mật khẩu.";
+      return;
+    }
+    // Chỉ cho đăng ký nếu là email @agu.edu.vn hoặc nằm trong TEST_EMAILS
+    if (!isAllowedEmail(email)) {
+      localMsg.textContent = "Email không được phép (chỉ @agu.edu.vn hoặc trong TEST_EMAILS).";
+      return;
+    }
+    await createUserWithEmailAndPassword(auth, email, pass);
+    localMsg.textContent = "Tạo tài khoản test thành công. Bạn đã đăng nhập.";
+  } catch (e) {
+    console.error(e);
+    localMsg.textContent = "Đăng ký thất bại: " + (e.code || "");
+  }
+};
+
+btnLocalLogin.onclick = async () => {
+  localMsg.textContent = "";
+  try {
+    const email = (localEmail.value || "").trim();
+    const pass  = localPass.value || "";
+    if (!email || !pass) {
+      localMsg.textContent = "Nhập email và mật khẩu.";
+      return;
+    }
+    await signInWithEmailAndPassword(auth, email, pass);
+    localMsg.textContent = "Đăng nhập test thành công.";
+  } catch (e) {
+    console.error(e);
+    localMsg.textContent = "Đăng nhập thất bại: " + (e.code || "");
+  }
+};
+
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     currentUser = null;
@@ -133,11 +179,11 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   // Check domain
-  if (!user.email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-    await signOut(auth);
-    loginMessage.textContent = `Chỉ chấp nhận tài khoản @${ALLOWED_DOMAIN}`;
-    return;
-  }
+  if (!isAllowedEmail(user.email)) {
+  await signOut(auth);
+  loginMessage.textContent = `Chỉ chấp nhận @${ALLOWED_DOMAIN} hoặc email test trong TEST_EMAILS.`;
+  return;
+}
 
   currentUser = user;
   isAdmin = ADMIN_EMAILS.includes(user.email);

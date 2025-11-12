@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quản lý mượn trả thiết bị - AGU</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; }
+    h1 { margin-bottom: 0; }
+    .hidden { display: none; }
+    .card { border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 4px; }
+    button { margin: 2px; }
+    .tag { font-size: 12px; padding: 2px 6px; border-radius: 3px; background: #eee; margin-left: 4px;}
+    .status-pending { color: #c77600; }
+    .status-approved { color: #007b00; }
+    .status-rejected { color: #c00000; }
+    .status-returned { color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Quản lý mượn trả thiết bị - AGU</h1>
+  <p>Đăng nhập bằng tài khoản <strong>@agu.edu.vn</strong>. Dữ liệu lưu trên Firebase, chạy full trên GitHub Pages.</p>
+
+  <!-- Khu vực login -->
+  <div id="loginArea">
+    <button id="btnGoogleLogin">Đăng nhập với Google @agu.edu.vn</button>
+    <p id="loginMessage"></p>
+  </div>
+
+  <!-- Info user -->
+  <div id="userInfo" class="hidden">
+    <p>
+      Đang đăng nhập: <strong id="userEmail"></strong>
+      <span id="userRoleTag" class="tag"></span>
+      <button id="btnLogout">Đăng xuất</button>
+    </p>
+  </div>
+
+  <!-- Admin: quản lý thiết bị -->
+  <section id="adminEquipment" class="hidden">
+    <h2>Quản lý thiết bị (Admin)</h2>
+    <div>
+      <input id="eqName" placeholder="Tên thiết bị" />
+      <input id="eqCode" placeholder="Mã thiết bị" />
+      <input id="eqQty" type="number" placeholder="Số lượng" />
+      <input id="eqDesc" placeholder="Mô tả" />
+      <button id="btnAddEq">Thêm thiết bị</button>
+    </div>
+    <div id="equipmentListAdmin"></div>
+  </section>
+
+  <!-- User: xem & mượn -->
+  <section id="userSection" class="hidden">
+    <h2>Danh sách thiết bị</h2>
+    <div id="equipmentList"></div>
+
+    <h3>Tạo yêu cầu mượn</h3>
+    <input id="loanEqId" placeholder="ID thiết bị" />
+    <input id="loanQty" type="number" placeholder="Số lượng" />
+    <input id="loanNote" placeholder="Ghi chú" />
+    <button id="btnCreateLoan">Gửi yêu cầu</button>
+    <p id="loanCreateMsg"></p>
+
+    <h3>Yêu cầu của tôi</h3>
+    <div id="myLoans"></div>
+  </section>
+
+  <!-- Admin: duyệt yêu cầu -->
+  <section id="adminLoans" class="hidden">
+    <h2>Quản lý yêu cầu mượn (Admin)</h2>
+    <div id="allLoans"></div>
+  </section>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

@@ -367,23 +367,35 @@ async function refreshMyLoans() {
   if (!currentUser) return;
   myLoans.innerHTML = "Đang tải...";
   try {
+    // KHÔNG orderBy để không cần index
     const qRef = query(
       collection(db, "loans"),
-      where("userId", "==", currentUser.uid),
-      orderBy("createdAt", "desc")
+      where("userId", "==", currentUser.uid)
     );
     const snap = await getDocs(qRef);
-    let html = "";
+
+    // Gom vào mảng rồi sort trên client theo createdAt desc
+    const arr = [];
     snap.forEach((docSnap) => {
-      const d = docSnap.data();
-      html += renderLoanCard(docSnap.id, d, false);
+      arr.push({ id: docSnap.id, data: docSnap.data() });
     });
+    arr.sort((a, b) => {
+      const ta = a.data.createdAt?.toMillis?.() ?? 0;
+      const tb = b.data.createdAt?.toMillis?.() ?? 0;
+      return tb - ta; // desc
+    });
+
+    let html = "";
+    for (const it of arr) {
+      html += renderLoanCard(it.id, it.data, false);
+    }
     myLoans.innerHTML = html || "<p>Chưa có yêu cầu.</p>";
   } catch (e) {
     console.error("refreshMyLoans error:", e);
     myLoans.innerHTML = `<p style="color:#c00">Lỗi tải yêu cầu của tôi: ${e.code || e.message}</p>`;
   }
 }
+
 
 
 // ------- ADMIN: XEM & DUYỆT TẤT CẢ -------

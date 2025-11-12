@@ -15,7 +15,7 @@ const ALLOWED_DOMAIN = "agu.edu.vn";
 
 // Email admin (tạm thời cấu hình ở client; triển khai thật nên set bằng Firestore rules hoặc custom claims)
 const ADMIN_EMAILS = [
-  "admin1@agu.edu.vn",
+  "nthanhphuong@agu.edu.vn",
   "admin2@agu.edu.vn"
 ];
 

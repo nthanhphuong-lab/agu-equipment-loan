@@ -302,120 +302,114 @@ async function refreshEquipmentLists() {
 // ------- TẠO YÊU CẦU MƯỢN (USER) -------
 
 btnCreateLoan.onclick = async () => {
-  if (!currentUser) {
-    alert("Cần đăng nhập.");
-    return;
-  }
+  if (!currentUser) { alert("Cần đăng nhập."); return; }
+
   const eqId = (loanEqSelect.value || "").trim();
   const qty = parseInt(loanQty.value, 10) || 0;
   const note = loanNote.value.trim();
-  const startStr = loanStart.value; // yyyy-mm-dd
+  const startStr = loanStart.value;
   const dueStr = loanDue.value;
 
-  if (!eqId || qty <= 0) {
-    loanCreateMsg.textContent = "Chọn thiết bị và số lượng > 0.";
-    return;
-  }
-  if (!startStr || !dueStr) {
-    loanCreateMsg.textContent = "Chọn ngày mượn và ngày trả dự kiến.";
-    return;
-  }
+  if (!eqId || qty <= 0) { loanCreateMsg.textContent = "Chọn thiết bị và số lượng > 0."; return; }
+  if (!startStr || !dueStr) { loanCreateMsg.textContent = "Chọn ngày mượn và ngày trả dự kiến."; return; }
+
   const startDate = new Date(`${startStr}T00:00:00`);
   const dueDate = new Date(`${dueStr}T23:59:59`);
-  if (startDate > dueDate) {
-    loanCreateMsg.textContent = "Ngày trả phải sau hoặc bằng ngày mượn.";
-    return;
+  if (startDate > dueDate) { loanCreateMsg.textContent = "Ngày trả phải sau hoặc bằng ngày mượn."; return; }
+
+  try {
+    // Check tồn
+    const eqRef = doc(db, "equipment", eqId);
+    const eqSnap = await getDoc(eqRef);
+    if (!eqSnap.exists()) { loanCreateMsg.textContent = "Không tìm thấy thiết bị."; return; }
+    const eq = eqSnap.data();
+    if (!eq.is_active) { loanCreateMsg.textContent = "Thiết bị không còn hoạt động."; return; }
+    if (eq.quantity_available < qty) { loanCreateMsg.textContent = "Không đủ số lượng còn lại."; return; }
+
+    await addDoc(collection(db, "loans"), {
+      userId: currentUser.uid,
+      userEmail: currentUser.email,
+      equipmentId: eqId,
+      equipmentName: eq.name,
+      quantity: qty,
+      note,
+      status: "pending",
+      createdAt: serverTimestamp(),
+      requestedStart: startDate,
+      requestedDue: dueDate,
+      approvedBy: null,
+      approvedAt: null,
+      startAt: null,
+      dueAt: null,
+      returned: false,
+      returnedAt: null,
+      rejectedReason: null
+    });
+
+    console.log("Loan created OK");
+    loanEqSelect.value = "";
+    loanQty.value = "";
+    loanNote.value = "";
+    loanCreateMsg.textContent = "Đã gửi yêu cầu mượn.";
+
+    await refreshMyLoans();
+    if (isAdmin) await refreshAllLoans();
+  } catch (e) {
+    console.error("Create loan error:", e);
+    loanCreateMsg.textContent = "Gửi yêu cầu thất bại: " + (e.code || e.message);
   }
-
-  // Check tồn
-  const eqRef = doc(db, "equipment", eqId);
-  const eqSnap = await getDoc(eqRef);
-  if (!eqSnap.exists()) {
-    loanCreateMsg.textContent = "Không tìm thấy thiết bị.";
-    return;
-  }
-  const eq = eqSnap.data();
-  if (!eq.is_active) {
-    loanCreateMsg.textContent = "Thiết bị không còn hoạt động.";
-    return;
-  }
-  if (eq.quantity_available < qty) {
-    loanCreateMsg.textContent = "Không đủ số lượng còn lại.";
-    return;
-  }
-
-  await addDoc(collection(db, "loans"), {
-    userId: currentUser.uid,
-    userEmail: currentUser.email,
-    equipmentId: eqId,
-    equipmentName: eq.name,
-    quantity: qty,
-    note,
-    status: "pending",
-    createdAt: serverTimestamp(),
-
-    // yêu cầu thời gian
-    requestedStart: startDate, // Date sẽ được serialize thành Timestamp
-    requestedDue: dueDate,
-
-    // thời gian sau khi duyệt
-    approvedBy: null,
-    approvedAt: null,
-    startAt: null,
-    dueAt: null,
-
-    // trả
-    returned: false,
-    returnedAt: null,
-    rejectedReason: null
-  });
-
-  loanEqSelect.value = "";
-  loanQty.value = "";
-  loanNote.value = "";
-  loanCreateMsg.textContent = "Đã gửi yêu cầu mượn.";
-
-  await refreshMyLoans();
-  if (isAdmin) await refreshAllLoans();
 };
+
 
 
 // ------- XEM YÊU CẦU CỦA MÌNH -------
 async function refreshMyLoans() {
   if (!currentUser) return;
-  const qRef = query(
-    collection(db, "loans"),
-    where("userId", "==", currentUser.uid),
-    orderBy("createdAt", "desc")
-  );
-  const snap = await getDocs(qRef);
-  let html = "";
-
-  snap.forEach((docSnap) => {
-    const d = docSnap.data();
-    html += renderLoanCard(docSnap.id, d, false);
-  });
-
-  myLoans.innerHTML = html || "<p>Chưa có yêu cầu.</p>";
+  myLoans.innerHTML = "Đang tải...";
+  try {
+    const qRef = query(
+      collection(db, "loans"),
+      where("userId", "==", currentUser.uid),
+      orderBy("createdAt", "desc")
+    );
+    const snap = await getDocs(qRef);
+    let html = "";
+    snap.forEach((docSnap) => {
+      const d = docSnap.data();
+      html += renderLoanCard(docSnap.id, d, false);
+    });
+    myLoans.innerHTML = html || "<p>Chưa có yêu cầu.</p>";
+  } catch (e) {
+    console.error("refreshMyLoans error:", e);
+    myLoans.innerHTML = `<p style="color:#c00">Lỗi tải yêu cầu của tôi: ${e.code || e.message}</p>`;
+  }
 }
+
 
 // ------- ADMIN: XEM & DUYỆT TẤT CẢ -------
 async function refreshAllLoans() {
   if (!isAdmin) return;
-  const qRef = query(
-    collection(db, "loans"),
-    orderBy("createdAt", "desc")
-  );
-  const snap = await getDocs(qRef);
-  let html = "";
+  allLoans.innerHTML = "Đang tải...";
+  try {
+    // TẠM thời bỏ orderBy để loại trừ lỗi index
+    const snap = await getDocs(collection(db, "loans"));
+    let html = "";
+    let count = 0;
 
-  snap.forEach((docSnap) => {
-    const d = docSnap.data();
-    html += renderLoanCard(docSnap.id, d, true);
-  });
+    snap.forEach((docSnap) => {
+      const d = docSnap.data();
+      html += renderLoanCard(docSnap.id, d, true);
+      count++;
+    });
 
-  allLoans.innerHTML = html || "<p>Chưa có yêu cầu.</p>";
+    allLoans.innerHTML = html || "<p>Chưa có yêu cầu.</p>";
+    console.log("[Admin] loans count =", count);
+  } catch (e) {
+    console.error("refreshAllLoans error:", e);
+    allLoans.innerHTML = `<p style="color:#c00">Lỗi tải danh sách: ${e.code || e.message}</p>`;
+  }
 }
+
 
 // Render 1 phiếu mượn
 function renderLoanCard(id, d, adminView) {

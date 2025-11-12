@@ -18,6 +18,17 @@ const ADMIN_EMAILS = [
   "nthanhphuong@agu.edu.vn",
   "admin2@agu.edu.vn"
 ];
+// Cho phép email test không thuộc @agu.edu.vn
+const TEST_EMAILS = [
+  "test1@local.test",
+  "test2@local.test"
+];
+
+// Helper: email được phép dùng app?
+function isAllowedEmail(email) {
+  return email.endsWith("@agu.edu.vn") || TEST_EMAILS.includes(email);
+}
+
 
 // ------- INIT FIREBASE -------
 import {

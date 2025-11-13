@@ -443,8 +443,7 @@ async function refreshMyLoans(){
   }
 }
 
-// ================== STATE FILTER ==================
-let loanFilter = { status:"", from:null, to:null };
+
 
 // ================== ÁP DỤNG FILTER ==================
 document.getElementById("applyLoanFilter").onclick = ()=>{

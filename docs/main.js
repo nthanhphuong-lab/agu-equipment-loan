@@ -1,3 +1,6 @@
+// main.js - Updated
+// Yêu cầu: ngày trả có thể trống; user sửa/xóa trước khi duyệt; admin duyệt/từ chối/gia hạn/xác nhận trả/xóa; admin sửa/xóa thiết bị; stats khác nhau kèm thời gian
+
 // ================== CONFIG ==================
 const firebaseConfig = {
   apiKey: "AIzaSyALw-kDEXZeKBQk__Mnfrqogb7vKuPu92w",
@@ -12,10 +15,7 @@ const firebaseConfig = {
 const ALLOWED_DOMAIN = "agu.edu.vn";
 const ADMIN_EMAILS = ["nthanhphuong@agu.edu.vn", "admin2@agu.edu.vn"];
 const TEST_EMAILS = ["test1@local.test", "test2@local.test"];
-
-function isAllowedEmail(email){
-  return email.endsWith("@"+ALLOWED_DOMAIN) || TEST_EMAILS.includes(email);
-}
+function isAllowedEmail(email){ return email && (email.endsWith("@"+ALLOWED_DOMAIN) || TEST_EMAILS.includes(email)); }
 
 // ================== IMPORTS ==================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -25,7 +25,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 import {
   getFirestore, collection, addDoc, doc, getDoc, getDocs,
-  updateDoc, deleteDoc, serverTimestamp, query, where, orderBy
+  updateDoc, deleteDoc, serverTimestamp, query, where, orderBy, Timestamp
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 // ================== INIT ==================
@@ -217,14 +217,10 @@ async function refreshEquipmentLists(){
     const d = docSnap.data(); const id = docSnap.id;
     if (!d.is_active) return;
     // user view
-    htmlUser += `<div class="card"><strong>${d.name}</strong> (${d.code}) — Còn: ${d.quantity_available}/${d.quantity_total}<br>${d.description||""}</div>`;
+    htmlUser += `<div class=\"card\"><strong>${d.name}</strong> (${d.code}) — Còn: ${d.quantity_available}/${d.quantity_total}<br>${d.description||""}</div>`;
     // admin view
     if (isAdmin){
-      htmlAdmin += `<div class="card">
-        <strong>${d.name}</strong> (${d.code}) — Còn: ${d.quantity_available}/${d.quantity_total}<br>${d.description||""}
-        <button onclick="editEquipment('${id}')">Sửa</button>
-        <button onclick="deleteEquipment('${id}')">Xóa</button>
-      </div>`;
+      htmlAdmin += `<div class=\"card\">\n        <strong>${d.name}</strong> (${d.code}) — Còn: ${d.quantity_available}/${d.quantity_total}<br>${d.description||""}\n        <button onclick=\"editEquipment('${id}')\">Sửa</button>\n        <button onclick=\"deleteEquipment('${id}')\">Xóa</button>\n      </div>`;
     }
     // select for loan
     const opt = document.createElement("option");
@@ -260,7 +256,10 @@ window.editEquipment = async (id)=>{
   const qty = parseInt(prompt("Tổng số lượng:", d.quantity_total),10);
   if (isNaN(qty) || qty<0) return alert("Số lượng không hợp lệ");
   const desc = prompt("Mô tả:", d.description||"");
-  await updateDoc(eqRef,{name,code,description:desc,quantity_total:qty});
+  // điều chỉnh quantity_available tương ứng nếu cần
+  const delta = qty - (d.quantity_total || 0);
+  const newAvailable = (d.quantity_available || 0) + delta;
+  await updateDoc(eqRef,{name,code,description:desc,quantity_total:qty,quantity_available:newAvailable});
   await refreshEquipmentLists();
 };
 window.deleteEquipment = async (id)=>{
@@ -302,12 +301,13 @@ btnCreateLoan.onclick = async () => {
       note,
       status: "pending",
       createdAt: serverTimestamp(),
-      requestedStart: startDate,
-      requestedDue: dueDate,
+      requestedStart: Timestamp.fromDate(startDate),
+      requestedDue: dueDate ? Timestamp.fromDate(dueDate) : null,
       approvedBy: null, approvedAt: null,
       startAt: null, dueAt: null,
       returned: false, returnedAt: null,
-      rejectedReason: null
+      rejectedReason: null,
+      deleted: false
     });
 
     loanEqSelect.value = ""; loanQty.value = ""; loanNote.value = "";
@@ -327,81 +327,77 @@ function renderLoanCard(id, d, adminView){
 
   const fmt = (ts)=>{
     if (!ts) return "";
-    const date = ts.toDate ? ts.toDate() : new Date(ts);
-    return date.toLocaleDateString();
+    try{ return ts.toDate ? ts.toDate().toLocaleDateString() : new Date(ts).toLocaleDateString(); }catch(e){ return ""; }
   };
 
   let adminControls = "";
   if (adminView && d.status==="pending"){
     const reqStart = fmt(d.requestedStart), reqDue = fmt(d.requestedDue);
-    adminControls += `
-      <div style="margin-top:6px">
-        <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>
-        <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
-        <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
-        <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
-        <button onclick="rejectLoan('${id}')">Từ chối</button>
-        <button onclick="deleteLoan('${id}')">Xóa</button>
-      </div>`;
+    adminControls += `\n      <div style=\"margin-top:6px\">\n        <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>\n        <label>Bắt đầu: <input type=\"date\" id=\"ap_start_${id}\"></label>\n        <label>Hạn trả: <input type=\"date\" id=\"ap_due_${id}\"></label>\n        <button onclick=\"approveLoanWithDates('${id}')\">Duyệt</button>\n        <button onclick=\"rejectLoan('${id}')\">Từ chối</button>\n        <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n      </div>`;
   }
   if (adminView && d.status==="approved" && !d.returned){
-    adminControls += `
-      <div style="margin-top:6px">
-        <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
-        <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
-        <button onclick="extendLoan('${id}')">Gia hạn</button>
-        &nbsp; | &nbsp;
-        <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
-        <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
-        <button onclick="deleteLoan('${id}')">Xóa</button>
-      </div>`;
+    adminControls += `\n      <div style=\"margin-top:6px\">\n        <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>\n        <label>Gia hạn đến: <input type=\"date\" id=\"extend_due_${id}\"></label>\n        <button onclick=\"extendLoan('${id}')\">Gia hạn</button>\n        &nbsp; | &nbsp;\n        <label>Thời điểm trả: <input type=\"datetime-local\" id=\"ret_at_${id}\"></label>\n        <button onclick=\"returnLoanWithTime('${id}')\">Xác nhận trả</button>\n        <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n      </div>`;
   }
 
   let userControls = "";
   if (!adminView && d.status==="pending"){
-    userControls = `<button onclick="editMyLoan('${id}')">Sửa</button> <button onclick="deleteLoan('${id}')">Xóa</button>`;
+    userControls = `<div style=\"margin-top:6px\">\n      <button onclick=\"editMyLoan('${id}')\">Sửa</button> <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n    </div>`;
   }
 
-  return `
-    <div class="card">
-      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>
-      <div>Người mượn: ${d.userEmail}</div>
-      <div class="${statusClass}">
-        Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}
-      </div>
-      <div>Ghi chú: ${d.note||""}</div>
-      ${ (d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : "" }
-      ${ (d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : "" }
-      ${adminControls || userControls}
-    </div>
-  `;
+  return `\n    <div class=\"card\">\n      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>\n      <div>Người mượn: ${d.userEmail}</div>\n      <div class=\"${statusClass}\">\n        Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}\n      </div>\n      <div>Ghi chú: ${d.note||""}</div>\n      ${ (d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : "" }\n      ${ (d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : "" }\n      ${adminControls || userControls}\n    </div>\n  `;
 }
 
 async function refreshMyLoans(){
   if (!currentUser) return;
   myLoans.innerHTML = "Đang tải...";
-  const q = query(collection(db,"loans"), where("userId","==",currentUser.uid), orderBy("createdAt","desc"));
-  const snap = await getDocs(q);
-  let html="";
-  snap.forEach(docSnap=>{
-    const d = docSnap.data();
-    if (d.deleted) return;
-    html += renderLoanCard(docSnap.id,d,false);
-  });
-  myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  try{
+    // query by userEmail (consistent with documents created above)
+    const q = query(collection(db,"loans"), where("userEmail","==", currentUser.email), orderBy("createdAt","desc"));
+    const snap = await getDocs(q);
+    let html = "";
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      if (d.deleted) return;
+      html += renderLoanCard(docSnap.id,d,false);
+    });
+    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }catch(e){
+    console.error(e);
+    // fallback: load all and filter client-side (nếu composite index missing)
+    const snap = await getDocs(collection(db,"loans"));
+    const arr = [];
+    snap.forEach(docSnap=>{ const d = docSnap.data(); if (!d.deleted && d.userEmail===currentUser.email) arr.push({id:docSnap.id,data:d}); });
+    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
+    let html = "";
+    for (const it of arr) html += renderLoanCard(it.id,it.data,false);
+    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }
 }
 
 async function refreshAllLoans(){
   if (!isAdmin) return;
   allLoans.innerHTML = "Đang tải...";
-  const snap = await getDocs(collection(db,"loans"));
-  let html="";
-  snap.forEach(docSnap=>{
-    const d = docSnap.data();
-    if (d.deleted) return;
-    html += renderLoanCard(docSnap.id,d,true);
-  });
-  allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  try{
+    const q = query(collection(db,"loans"), orderBy("createdAt","desc"));
+    const snap = await getDocs(q);
+    let html = "";
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      if (d.deleted) return;
+      html += renderLoanCard(docSnap.id,d,true);
+    });
+    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }catch(e){
+    console.warn(e);
+    // fallback
+    const snap = await getDocs(collection(db,"loans"));
+    const arr = [];
+    snap.forEach(docSnap=>{ const d = docSnap.data(); if (!d.deleted) arr.push({id:docSnap.id,data:d}); });
+    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
+    let html = "";
+    for (const it of arr) html += renderLoanCard(it.id,it.data,true);
+    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }
 }
 
 // ================== ADMIN LOAN ACTIONS ==================
@@ -427,8 +423,8 @@ window.approveLoanWithDates = async (id)=>{
     status: "approved",
     approvedBy: currentUser.email,
     approvedAt: serverTimestamp(),
-    startAt: start,
-    dueAt: due
+    startAt: Timestamp.fromDate(start),
+    dueAt: Timestamp.fromDate(due)
   });
   await refreshAllLoans(); await refreshMyLoans();
 };
@@ -446,7 +442,7 @@ window.extendLoan = async (id)=>{
   if (!newDueEl || !newDueEl.value) return;
   const newDue = new Date(newDueEl.value+"T23:59:59");
   const loanRef = doc(db,"loans",id);
-  await updateDoc(loanRef,{dueAt: newDue});
+  await updateDoc(loanRef,{dueAt: Timestamp.fromDate(newDue)});
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -461,7 +457,7 @@ window.returnLoanWithTime = async (id)=>{
   const eqSnap = await getDoc(eqRef);
   const eq = eqSnap.data();
   await updateDoc(eqRef,{quantity_available: eq.quantity_available + loan.quantity});
-  await updateDoc(loanRef,{returned:true, returnedAt:retDate});
+  await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -473,8 +469,14 @@ window.editMyLoan = async (id)=>{
   if (loan.status !== "pending") return alert("Không thể sửa yêu cầu đã duyệt.");
   const qty = parseInt(prompt("Số lượng:", loan.quantity),10);
   if (isNaN(qty)||qty<=0) return;
+  const startStr = prompt("Ngày mượn (YYYY-MM-DD):", loan.requestedStart?.toDate ? loan.requestedStart.toDate().toISOString().slice(0,10) : "");
+  const dueStr = prompt("Ngày trả (YYYY-MM-DD, để trống nếu chưa biết):", loan.requestedDue?.toDate ? loan.requestedDue.toDate().toISOString().slice(0,10) : "");
+  if (!startStr) return alert("Ngày mượn bắt buộc");
+  const startDate = new Date(`${startStr}T00:00:00`);
+  const dueDate = dueStr ? new Date(`${dueStr}T23:59:59`) : null;
+  if (dueDate && startDate>dueDate) return alert("Ngày trả phải sau ngày mượn");
   const note = prompt("Ghi chú:", loan.note||"") || "";
-  await updateDoc(loanRef,{quantity:qty,note});
+  await updateDoc(loanRef,{quantity:qty, requestedStart: Timestamp.fromDate(startDate), requestedDue: dueDate?Timestamp.fromDate(dueDate):null, note});
   await refreshMyLoans();
 };
 
@@ -497,17 +499,17 @@ async function refreshStats(){
     const pending = loans.filter(l=>l.status==="pending").length;
     const approved = loans.filter(l=>l.status==="approved" && !l.returned).length;
     const returned = loans.filter(l=>l.returned).length;
-    statsArea.innerHTML = `
-      <p>Chờ duyệt: ${pending}</p>
-      <p>Đang mượn: ${approved}</p>
-      <p>Đã trả: ${returned}</p>
-    `;
+    // thêm thời gian (mốc) — hiển thị last activity
+    const lastActivityTs = loans.map(l=>l.approvedAt||l.createdAt||l.returnedAt).filter(Boolean).sort((a,b)=> (b.toMillis?b.toMillis():0)-(a.toMillis?a.toMillis():0))[0];
+    const lastActivity = lastActivityTs ? (lastActivityTs.toDate? lastActivityTs.toDate().toLocaleString(): new Date(lastActivityTs).toLocaleString()) : 'Chưa có hoạt động';
+    statsArea.innerHTML = `\n      <p>Chờ duyệt: ${pending}</p>\n      <p>Đang mượn: ${approved}</p>\n      <p>Đã trả: ${returned}</p>\n      <p>Hoạt động gần nhất: ${lastActivity}</p>\n    `;
   } else {
     const myLoans = loans.filter(l=>l.userId===currentUser.uid);
-    statsArea.innerHTML = myLoans.map(l=>`
-      <div class="card">
-        <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned ? " (ĐÃ TRẢ)" : ""}
-      </div>
-    `).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
+    statsArea.innerHTML = myLoans.map(l=>{
+      const t = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString() : (l.createdAt ? new Date(l.createdAt).toLocaleString() : '');
+      return `\n      <div class=\"card\">\n        <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned?" (ĐÃ TRẢ)":""}\n        <br><small>Yêu cầu: ${t}</small>\n      </div>`;
+    }).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
   }
 }
+
+// EOF

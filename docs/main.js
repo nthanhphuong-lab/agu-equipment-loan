@@ -20,7 +20,7 @@ function isAllowedEmail(email) {
 // ================== IMPORTS ==================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut,
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut,
   onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 import {
@@ -71,12 +71,8 @@ btnGoogleLogin.onclick = async () => {
   loginMessage.textContent = "";
   const provider = new GoogleAuthProvider();
   try {
-    const result = await signInWithPopup(auth, provider);
-    const email = result.user.email || "";
-    if (!email.endsWith("@"+ALLOWED_DOMAIN)) {
-      await signOut(auth);
-      loginMessage.textContent = `Chỉ chấp nhận tài khoản @${ALLOWED_DOMAIN}`;
-    }
+    // Sử dụng signInWithRedirect thay vì signInWithPopup
+    await signInWithRedirect(auth, provider);
   } catch (err) {
     console.error(err);
     loginMessage.textContent = "Đăng nhập thất bại.";
@@ -85,34 +81,46 @@ btnGoogleLogin.onclick = async () => {
 
 btnLogout.onclick = async () => { await signOut(auth); };
 
-const localEmail = document.getElementById("localEmail");
-const localPass  = document.getElementById("localPass");
-const btnLocalSignup = document.getElementById("btnLocalSignup");
-const btnLocalLogin  = document.getElementById("btnLocalLogin");
-const localMsg = document.getElementById("localMsg");
+// Xử lý khi chuyển hướng sau khi đăng nhập
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    currentUser = null;
+    isAdmin = false;
+    userInfo.classList.add("hidden");
+    loginArea.classList.remove("hidden");
+    return;
+  }
 
-btnLocalSignup.onclick = async () => {
-  localMsg.textContent = "";
-  try {
-    const email = (localEmail.value||"").trim();
-    const pass = localPass.value || "";
-    if (!email || !pass){ localMsg.textContent = "Nhập email và mật khẩu."; return; }
-    if (!isAllowedEmail(email)){ localMsg.textContent = "Email không được phép."; return; }
-    await createUserWithEmailAndPassword(auth, email, pass);
-    localMsg.textContent = "Tạo tài khoản test thành công. Bạn đã đăng nhập.";
-  } catch(e){ console.error(e); localMsg.textContent = "Đăng ký thất bại: " + (e.code||""); }
-};
+  // Kiểm tra email người dùng
+  if (!isAllowedEmail(user.email)) {
+    await signOut(auth);
+    loginMessage.textContent = `Chỉ chấp nhận tài khoản @${ALLOWED_DOMAIN} hoặc email test trong TEST_EMAILS.`;
+    return;
+  }
 
-btnLocalLogin.onclick = async () => {
-  localMsg.textContent = "";
-  try {
-    const email = (localEmail.value||"").trim();
-    const pass = localPass.value || "";
-    if (!email || !pass){ localMsg.textContent = "Nhập email và mật khẩu."; return; }
-    await signInWithEmailAndPassword(auth, email, pass);
-    localMsg.textContent = "Đăng nhập test thành công.";
-  } catch(e){ console.error(e); localMsg.textContent = "Đăng nhập thất bại: " + (e.code||""); }
-};
+  currentUser = user;
+  isAdmin = ADMIN_EMAILS.includes(user.email);
+
+  userEmailEl.textContent = user.email;
+  userRoleTag.textContent = isAdmin ? "ADMIN" : "USER";
+  userRoleTag.style.background = isAdmin ? "#222" : "#eee";
+  userRoleTag.style.color = isAdmin ? "#fff" : "#000";
+
+  loginArea.classList.add("hidden");
+  userInfo.classList.remove("hidden");
+
+  // Hiển thị trang khác cho admin
+  if (isAdmin) {
+    equipmentListAdmin.classList.remove("hidden");
+  } else {
+    equipmentListAdmin.classList.add("hidden");
+  }
+
+  // Tải lại danh sách thiết bị và yêu cầu
+  await refreshEquipmentLists();
+  await refreshMyLoans();
+  if (isAdmin) await refreshAllLoans();
+});
 
 // ================== QUẢN LÝ YÊU CẦU MƯỢN ==================
 async function refreshAllLoans() {
@@ -161,43 +169,6 @@ async function renderLoanCard(id, d, adminView) {
       ${adminControls}
     </div>
   `;
-}
-
-// ================== CẬP NHẬT, XÓA THIẾT BỊ ==================
-async function editEquipment(equipmentId) {
-  const eqRef = doc(db, "equipment", equipmentId);
-  const eqSnap = await getDoc(eqRef);
-  if (!eqSnap.exists()) return alert("Thiết bị không tồn tại.");
-
-  const eq = eqSnap.data();
-
-  const newName = prompt("Nhập tên thiết bị mới", eq.name);
-  const newCode = prompt("Nhập mã thiết bị mới", eq.code);
-  const newQty = prompt("Nhập số lượng thiết bị mới", eq.quantity_total);
-
-  await updateDoc(eqRef, {
-    name: newName,
-    code: newCode,
-    quantity_total: parseInt(newQty, 10),
-    quantity_available: parseInt(newQty, 10)
-  });
-
-  alert("Cập nhật thiết bị thành công.");
-  await refreshEquipmentLists();
-}
-
-// Xóa thiết bị
-async function deleteEquipment(equipmentId) {
-  const eqRef = doc(db, "equipment", equipmentId);
-  const eqSnap = await getDoc(eqRef);
-  if (!eqSnap.exists()) return alert("Thiết bị không tồn tại.");
-
-  const confirmDelete = confirm("Bạn có chắc chắn muốn xóa thiết bị này?");
-  if (!confirmDelete) return;
-
-  await deleteDoc(eqRef);
-  alert("Đã xóa thiết bị.");
-  await refreshEquipmentLists();
 }
 
 // ================== TẠO YÊU CẦU MƯỢN ==================

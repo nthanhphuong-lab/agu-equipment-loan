@@ -104,6 +104,20 @@
     <div id="adminLoans">
       <div id="allLoans"></div>
     </div>
+    <div id="loanFilters" style="margin-bottom:10px">
+  <label>Trạng thái:
+    <select id="filterStatus">
+      <option value="">-- Tất cả --</option>
+      <option value="pending">Chờ duyệt</option>
+      <option value="approved">Đang mượn</option>
+      <option value="returned">Đã trả</option>
+      <option value="rejected">Từ chối</option>
+    </select>
+  </label>
+  <label>Ngày từ: <input type="date" id="filterFrom"></label>
+  <label>Ngày đến: <input type="date" id="filterTo"></label>
+  <button id="applyLoanFilter">Áp dụng</button>
+</div>
   </section>
 
   <!-- 6) Thống kê -->

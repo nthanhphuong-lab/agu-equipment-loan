@@ -1,228 +1,87 @@
-// ================== CONFIG ==================
-const firebaseConfig = {
-  apiKey: "AIzaSyALw-kDEXZeKBQk__Mnfrqogb7vKuPu92w",
-  authDomain: "qltb-37efe.firebaseapp.com",
-  projectId: "qltb-37efe",
-  storageBucket: "qltb-37efe.firebasestorage.app",
-  messagingSenderId: "405387499869",
-  appId: "1:405387499869:web:78c8799d558f0acc4270b4",
-  measurementId: "G-QKQFMLZBD2"
-};
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý mượn trả thiết bị - AGU</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <style>
+    body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; }
+    header { background-color: #222; color: white; padding: 10px 0; text-align: center; }
+    .hidden { display: none; }
+    .card { margin: 10px; padding: 15px; background-color: #f9f9f9; border-radius: 5px; box-shadow: 0 0 5px rgba(0, 0, 0, 0.1); }
+    .card button { margin-top: 10px; }
+    .menu { margin: 20px; }
+    .menu button { margin: 5px; padding: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
 
-const ALLOWED_DOMAIN = "agu.edu.vn";
-const ADMIN_EMAILS = ["nthanhphuong@agu.edu.vn", "admin2@agu.edu.vn"];
-const TEST_EMAILS = ["test1@local.test", "test2@local.test"];
+  <header>
+    <h1>Quản lý mượn trả thiết bị - AGU</h1>
+    <p>Đăng nhập bằng tài khoản <span id="userEmail"></span> (<span id="userRoleTag"></span>)</p>
+    <button id="btnLogout" class="btn">Đăng xuất</button>
+  </header>
 
-function isAllowedEmail(email) {
-  return email.endsWith("@"+ALLOWED_DOMAIN) || TEST_EMAILS.includes(email);
-}
+  <div id="loginArea">
+    <p id="loginMessage"></p>
+    <button id="btnGoogleLogin">Đăng nhập với Google @agu.edu.vn</button>
 
-// ================== IMPORTS ==================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, serverTimestamp, query, where, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    <hr>
 
-// ================== INIT ==================
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+    <h3>Đăng nhập local (test)</h3>
+    <input type="email" id="localEmail" placeholder="Email (test)">
+    <input type="password" id="localPass" placeholder="Mật khẩu">
+    <button id="btnLocalLogin">Đăng nhập test</button>
+    <button id="btnLocalSignup">Đăng ký test</button>
+    <p id="localMsg"></p>
+  </div>
 
-// ================== DOM ==================
-const loginArea = document.getElementById("loginArea");
-const loginMessage = document.getElementById("loginMessage");
-const btnGoogleLogin = document.getElementById("btnGoogleLogin");
-const btnLogout = document.getElementById("btnLogout");
-const userInfo = document.getElementById("userInfo");
-const userEmailEl = document.getElementById("userEmail");
-const userRoleTag = document.getElementById("userRoleTag");
-const eqName = document.getElementById("eqName");
-const eqCode = document.getElementById("eqCode");
-const eqQty = document.getElementById("eqQty");
-const eqDesc = document.getElementById("eqDesc");
-const btnAddEq = document.getElementById("btnAddEq");
-const equipmentListAdmin = document.getElementById("equipmentListAdmin");
-const equipmentList = document.getElementById("equipmentList");
-const loanEqSelect = document.getElementById("loanEqSelect");
-const loanQty = document.getElementById("loanQty");
-const loanStart = document.getElementById("loanStart");
-const loanDue = document.getElementById("loanDue");
-const loanNote = document.getElementById("loanNote");
-const btnCreateLoan = document.getElementById("btnCreateLoan");
-const loanCreateMsg = document.getElementById("loanCreateMsg");
-const myLoans = document.getElementById("myLoans");
-const allLoans = document.getElementById("allLoans");
-const menuAdmin = document.getElementById("menuAdmin");
-const menuUser = document.getElementById("menuUser");
-
-// ================== STATE ==================
-let currentUser = null;
-let isAdmin = false;
-
-// ================== AUTH FLOW ==================
-btnGoogleLogin.onclick = async () => {
-  loginMessage.textContent = "";
-  const provider = new GoogleAuthProvider();
-  try {
-    await signInWithRedirect(auth, provider);
-  } catch (err) {
-    console.error(err);
-    loginMessage.textContent = "Đăng nhập thất bại.";
-  }
-};
-
-btnLogout.onclick = async () => { await signOut(auth); };
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    currentUser = null;
-    isAdmin = false;
-    userInfo.classList.add("hidden");
-    loginArea.classList.remove("hidden");
-    return;
-  }
-
-  currentUser = user;
-  isAdmin = ADMIN_EMAILS.includes(user.email);
-
-  userEmailEl.textContent = user.email;
-  userRoleTag.textContent = isAdmin ? "ADMIN" : "USER";
-  userRoleTag.style.background = isAdmin ? "#222" : "#eee";
-  userRoleTag.style.color = isAdmin ? "#fff" : "#000";
-
-  loginArea.classList.add("hidden");
-  userInfo.classList.remove("hidden");
-
-  if (isAdmin) {
-    menuAdmin.classList.remove("hidden");
-    menuUser.classList.add("hidden");
-  } else {
-    menuAdmin.classList.add("hidden");
-    menuUser.classList.remove("hidden");
-  }
-
-  await refreshEquipmentLists();
-  await refreshMyLoans();
-  if (isAdmin) await refreshAllLoans();
-});
-
-// ================== QUẢN LÝ YÊU CẦU MƯỢN ==================
-async function refreshAllLoans() {
-  if (!isAdmin) return;
-  const qRef = query(collection(db, "loans"), orderBy("createdAt", "desc"));
-  const snap = await getDocs(qRef);
-  let html = "";
-  snap.forEach((docSnap) => {
-    const d = docSnap.data();
-    html += renderLoanCard(docSnap.id, d, true); 
-  });
-  allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn.</p>";
-}
-
-// ================== RENDER YÊU CẦU MƯỢN ==================
-function renderLoanCard(id, d, adminView) {
-  let statusClass = "";
-  if (d.status === "pending") statusClass = "status-pending";
-  else if (d.status === "approved" && !d.returned) statusClass = "status-approved";
-  else if (d.status === "rejected") statusClass = "status-rejected";
-  else if (d.returned) statusClass = "status-returned";
-
-  const fmt = (ts) => {
-    if (!ts) return "";
-    const date = ts.toDate ? ts.toDate() : new Date(ts);
-    return date.toLocaleDateString();
-  };
-
-  let adminControls = "";
-  if (adminView && d.status === "pending") {
-    adminControls = `
-      <div style="margin-top:6px">
-        <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
-        <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
-        <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
-        <button onclick="rejectLoan('${id}')">Từ chối</button>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="card">
-      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>
-      <div>Người mượn: ${d.userEmail}</div>
-      <div class="${statusClass}">Trạng thái: ${d.status.toUpperCase()}</div>
-      <div>Ghi chú: ${d.note || ""}</div>
-      ${adminControls}
+  <div id="userInfo" class="hidden">
+    <div class="menu">
+      <button id="btnOverview">Tổng quan</button>
+      <button id="btnManageDevices">Quản lý thiết bị (Admin)</button>
+      <button id="btnDeviceList">Danh sách thiết bị</button>
+      <button id="btnCreateLoan">Tạo yêu cầu mượn</button>
+      <button id="btnMyLoans">Yêu cầu của tôi</button>
+      <button id="btnManageLoans">Quản lý yêu cầu mượn (Admin)</button>
+      <button id="btnExportCSV">Xuất CSV thiết bị</button>
+      <button id="btnExportCSVLoan">Xuất CSV đơn mượn</button>
     </div>
-  `;
-}
+  </div>
 
-// ================== TẠO YÊU CẦU MƯỢN ==================
-btnCreateLoan.onclick = async () => {
-  if (!currentUser) {
-    alert("Cần đăng nhập.");
-    return;
-  }
-  const eqId = (loanEqSelect.value || "").trim();
-  const qty = parseInt(loanQty.value, 10) || 0;
-  const note = loanNote.value.trim();
-  const startStr = loanStart.value; 
-  const dueStr = loanDue.value;
+  <div id="menuAdmin" class="hidden">
+    <div class="card">
+      <h3>Quản lý thiết bị (Admin)</h3>
+      <input type="text" id="eqName" placeholder="Tên thiết bị">
+      <input type="text" id="eqCode" placeholder="Mã thiết bị">
+      <input type="number" id="eqQty" placeholder="Số lượng">
+      <input type="text" id="eqDesc" placeholder="Mô tả">
+      <button id="btnAddEq">Thêm thiết bị</button>
+    </div>
+    <div id="equipmentListAdmin"></div>
+  </div>
 
-  if (!eqId || qty <= 0) {
-    loanCreateMsg.textContent = "Chọn thiết bị và số lượng > 0.";
-    return;
-  }
-  if (!startStr || !dueStr) {
-    loanCreateMsg.textContent = "Chọn ngày mượn và ngày trả dự kiến.";
-    return;
-  }
-  const startDate = new Date(`${startStr}T00:00:00`);
-  const dueDate = new Date(`${dueStr}T23:59:59`);
-  if (startDate > dueDate) {
-    loanCreateMsg.textContent = "Ngày trả phải sau hoặc bằng ngày mượn.";
-    return;
-  }
+  <div id="menuUser" class="hidden">
+    <div id="equipmentList"></div>
+    <select id="loanEqSelect"></select>
+    <input type="number" id="loanQty" placeholder="Số lượng">
+    <input type="date" id="loanStart">
+    <input type="date" id="loanDue">
+    <input type="text" id="loanNote" placeholder="Ghi chú">
+    <button id="btnCreateLoan">Tạo yêu cầu mượn</button>
+    <p id="loanCreateMsg"></p>
+    <div id="myLoans"></div>
+  </div>
 
-  const eqRef = doc(db, "equipment", eqId);
-  const eqSnap = await getDoc(eqRef);
-  if (!eqSnap.exists()) {
-    loanCreateMsg.textContent = "Không tìm thấy thiết bị.";
-    return;
-  }
-  const eq = eqSnap.data();
-  if (!eq.is_active) {
-    loanCreateMsg.textContent = "Thiết bị không còn hoạt động.";
-    return;
-  }
-  if (eq.quantity_available < qty) {
-    loanCreateMsg.textContent = "Không đủ số lượng còn lại.";
-    return;
-  }
+  <div id="menuAdminLoans" class="hidden">
+    <div id="allLoans"></div>
+  </div>
 
-  await addDoc(collection(db, "loans"), {
-    userId: currentUser.uid,
-    userEmail: currentUser.email,
-    equipmentId: eqId,
-    equipmentName: eq.name,
-    quantity: qty,
-    note,
-    status: "pending",
-    createdAt: serverTimestamp(),
-    requestedStart: startDate,
-    requestedDue: dueDate,
-    approvedBy: null,
-    approvedAt: null,
-    startAt: null,
-    dueAt: null,
-    returned: false,
-    returnedAt: null,
-    rejectedReason: null
-  });
-
-  loanEqSelect.value = "";
-  loanQty.value = "";
-  loanNote.value = "";
-  loanCreateMsg.textContent = "Đã gửi yêu cầu mượn.";
-
-  await refreshMyLoans();
-  if (isAdmin) await refreshAllLoans();
-};
+  <script src="main.js"></script>
+</body>
+</html>

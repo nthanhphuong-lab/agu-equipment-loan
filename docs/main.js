@@ -331,13 +331,32 @@ function renderLoanCard(id, d, adminView){
   };
 
   let adminControls = "";
-  if (adminView && d.status==="pending"){
-    const reqStart = fmt(d.requestedStart), reqDue = fmt(d.requestedDue);
-    adminControls += `\n      <div style=\"margin-top:6px\">\n        <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>\n        <label>Bắt đầu: <input type=\"date\" id=\"ap_start_${id}\"></label>\n        <label>Hạn trả: <input type=\"date\" id=\"ap_due_${id}\"></label>\n        <button onclick=\"approveLoanWithDates('${id}')\">Duyệt</button>\n        <button onclick=\"rejectLoan('${id}')\">Từ chối</button>\n        <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n      </div>`;
-  }
-  if (adminView && d.status==="approved" && !d.returned){
-    adminControls += `\n      <div style=\"margin-top:6px\">\n        <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>\n        <label>Gia hạn đến: <input type=\"date\" id=\"extend_due_${id}\"></label>\n        <button onclick=\"extendLoan('${id}')\">Gia hạn</button>\n        &nbsp; | &nbsp;\n        <label>Thời điểm trả: <input type=\"datetime-local\" id=\"ret_at_${id}\"></label>\n        <button onclick=\"returnLoanWithTime('${id}')\">Xác nhận trả</button>\n        <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n      </div>`;
-  }
+if (adminView && d.status==="pending"){
+  const reqStart = fmt(d.requestedStart), reqDue = fmt(d.requestedDue);
+  adminControls += `
+    <div style="margin-top:6px">
+      <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>
+      <label>Bắt đầu: <input type="date" id="ap_start_${id}" value="${reqStart || ''}"></label>
+      <label>Hạn trả: <input type="date" id="ap_due_${id}" value="${reqDue || ''}" placeholder="Không bắt buộc"></label>
+      <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
+      <button onclick="rejectLoan('${id}')">Từ chối</button>
+      <button onclick="deleteLoan('${id}')">Xóa</button>
+    </div>`;
+}
+
+if (adminView && d.status==="approved" && !d.returned){
+  adminControls += `
+    <div style="margin-top:6px">
+      <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
+      <label>Gia hạn đến: <input type="date" id="extend_due_${id}" value="${d.dueAt ? fmt(d.dueAt) : ''}" placeholder="Không bắt buộc"></label>
+      <button onclick="extendLoan('${id}')">Gia hạn</button>
+      &nbsp; | &nbsp;
+      <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
+      <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
+      <button onclick="deleteLoan('${id}')">Xóa</button>
+    </div>`;
+}
+
 
   let userControls = "";
   if (!adminView && d.status==="pending"){
@@ -404,11 +423,16 @@ async function refreshAllLoans(){
 window.approveLoanWithDates = async (id)=>{
   const startEl = document.getElementById("ap_start_"+id);
   const dueEl = document.getElementById("ap_due_"+id);
-  const start = startEl && startEl.value ? new Date(startEl.value+"T00:00:00") : null;
+
+  // Ngày bắt đầu: nếu không chọn, mặc định hôm nay
+  const start = startEl && startEl.value ? new Date(startEl.value+"T00:00:00") : new Date();
+  // Ngày trả: có thể để trống
   const due = dueEl && dueEl.value ? new Date(dueEl.value+"T23:59:59") : null;
-  if (!start || !due){ alert("Chọn ngày bắt đầu và hạn trả."); return; }
+
   const loanRef = doc(db,"loans",id);
-  const loanSnap = await getDoc(loanRef); if (!loanSnap.exists()) return;
+  const loanSnap = await getDoc(loanRef);
+  if (!loanSnap.exists()) return;
+
   const loan = loanSnap.data();
   if (loan.status !== "pending") return alert("Yêu cầu đã xử lý.");
 
@@ -424,10 +448,13 @@ window.approveLoanWithDates = async (id)=>{
     approvedBy: currentUser.email,
     approvedAt: serverTimestamp(),
     startAt: Timestamp.fromDate(start),
-    dueAt: Timestamp.fromDate(due)
+    dueAt: due ? Timestamp.fromDate(due) : null
   });
-  await refreshAllLoans(); await refreshMyLoans();
+
+  await refreshAllLoans();
+  await refreshMyLoans();
 };
+
 
 window.rejectLoan = async (id)=>{
   const reason = prompt("Lý do từ chối:");

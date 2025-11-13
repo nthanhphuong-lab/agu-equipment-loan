@@ -19,14 +19,8 @@ function isAllowedEmail(email) {
 
 // ================== IMPORTS ==================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut,
-  onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-import {
-  getFirestore, collection, addDoc, doc, getDoc, getDocs,
-  updateDoc, serverTimestamp, query, where, orderBy, deleteDoc
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, signOut, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, serverTimestamp, query, where, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 // ================== INIT ==================
 const app = initializeApp(firebaseConfig);
@@ -41,14 +35,12 @@ const btnLogout = document.getElementById("btnLogout");
 const userInfo = document.getElementById("userInfo");
 const userEmailEl = document.getElementById("userEmail");
 const userRoleTag = document.getElementById("userRoleTag");
-
 const eqName = document.getElementById("eqName");
 const eqCode = document.getElementById("eqCode");
 const eqQty = document.getElementById("eqQty");
 const eqDesc = document.getElementById("eqDesc");
 const btnAddEq = document.getElementById("btnAddEq");
 const equipmentListAdmin = document.getElementById("equipmentListAdmin");
-
 const equipmentList = document.getElementById("equipmentList");
 const loanEqSelect = document.getElementById("loanEqSelect");
 const loanQty = document.getElementById("loanQty");
@@ -58,20 +50,19 @@ const loanNote = document.getElementById("loanNote");
 const btnCreateLoan = document.getElementById("btnCreateLoan");
 const loanCreateMsg = document.getElementById("loanCreateMsg");
 const myLoans = document.getElementById("myLoans");
-
 const allLoans = document.getElementById("allLoans");
+const menuAdmin = document.getElementById("menuAdmin");
+const menuUser = document.getElementById("menuUser");
 
 // ================== STATE ==================
 let currentUser = null;
 let isAdmin = false;
-let isManager = false;
 
 // ================== AUTH FLOW ==================
 btnGoogleLogin.onclick = async () => {
   loginMessage.textContent = "";
   const provider = new GoogleAuthProvider();
   try {
-    // Sử dụng signInWithRedirect thay vì signInWithPopup
     await signInWithRedirect(auth, provider);
   } catch (err) {
     console.error(err);
@@ -81,20 +72,12 @@ btnGoogleLogin.onclick = async () => {
 
 btnLogout.onclick = async () => { await signOut(auth); };
 
-// Xử lý khi chuyển hướng sau khi đăng nhập
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     currentUser = null;
     isAdmin = false;
     userInfo.classList.add("hidden");
     loginArea.classList.remove("hidden");
-    return;
-  }
-
-  // Kiểm tra email người dùng
-  if (!isAllowedEmail(user.email)) {
-    await signOut(auth);
-    loginMessage.textContent = `Chỉ chấp nhận tài khoản @${ALLOWED_DOMAIN} hoặc email test trong TEST_EMAILS.`;
     return;
   }
 
@@ -109,14 +92,14 @@ onAuthStateChanged(auth, async (user) => {
   loginArea.classList.add("hidden");
   userInfo.classList.remove("hidden");
 
-  // Hiển thị trang khác cho admin
   if (isAdmin) {
-    equipmentListAdmin.classList.remove("hidden");
+    menuAdmin.classList.remove("hidden");
+    menuUser.classList.add("hidden");
   } else {
-    equipmentListAdmin.classList.add("hidden");
+    menuAdmin.classList.add("hidden");
+    menuUser.classList.remove("hidden");
   }
 
-  // Tải lại danh sách thiết bị và yêu cầu
   await refreshEquipmentLists();
   await refreshMyLoans();
   if (isAdmin) await refreshAllLoans();
@@ -130,12 +113,13 @@ async function refreshAllLoans() {
   let html = "";
   snap.forEach((docSnap) => {
     const d = docSnap.data();
-    html += renderLoanCard(docSnap.id, d, true); // Hiển thị thông tin yêu cầu mượn
+    html += renderLoanCard(docSnap.id, d, true); 
   });
   allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn.</p>";
 }
 
-async function renderLoanCard(id, d, adminView) {
+// ================== RENDER YÊU CẦU MƯỢN ==================
+function renderLoanCard(id, d, adminView) {
   let statusClass = "";
   if (d.status === "pending") statusClass = "status-pending";
   else if (d.status === "approved" && !d.returned) statusClass = "status-approved";
@@ -180,7 +164,7 @@ btnCreateLoan.onclick = async () => {
   const eqId = (loanEqSelect.value || "").trim();
   const qty = parseInt(loanQty.value, 10) || 0;
   const note = loanNote.value.trim();
-  const startStr = loanStart.value; // yyyy-mm-dd
+  const startStr = loanStart.value; 
   const dueStr = loanDue.value;
 
   if (!eqId || qty <= 0) {

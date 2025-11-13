@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quản lý mượn trả thiết bị - AGU</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js"></script>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <style>
     body { font-family: 'Roboto', sans-serif; margin: 0; padding: 0; }
@@ -17,71 +14,71 @@
     .card button { margin-top: 10px; }
     .menu { margin: 20px; }
     .menu button { margin: 5px; padding: 10px; cursor: pointer; }
+    input, select { margin: 5px 0; padding: 5px; }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>Quản lý mượn trả thiết bị - AGU</h1>
-    <p>Đăng nhập bằng tài khoản <span id="userEmail"></span> (<span id="userRoleTag"></span>)</p>
-    <button id="btnLogout" class="btn">Đăng xuất</button>
-  </header>
+<header>
+  <h1>Quản lý mượn trả thiết bị - AGU</h1>
+  <p>Đăng nhập bằng tài khoản <span id="userEmail"></span> (<span id="userRoleTag"></span>)</p>
+  <button id="btnLogout" class="btn">Đăng xuất</button>
+</header>
 
-  <div id="loginArea">
-    <p id="loginMessage"></p>
-    <button id="btnGoogleLogin">Đăng nhập với Google @agu.edu.vn</button>
+<div id="loginArea">
+  <p id="loginMessage"></p>
+  <button id="btnGoogleLogin">Đăng nhập với Google @agu.edu.vn</button>
+  <hr>
+  <h3>Đăng nhập local (test)</h3>
+  <input type="email" id="localEmail" placeholder="Email (test)">
+  <input type="password" id="localPass" placeholder="Mật khẩu">
+  <button id="btnLocalLogin">Đăng nhập test</button>
+  <button id="btnLocalSignup">Đăng ký test</button>
+  <p id="localMsg"></p>
+</div>
 
-    <hr>
-
-    <h3>Đăng nhập local (test)</h3>
-    <input type="email" id="localEmail" placeholder="Email (test)">
-    <input type="password" id="localPass" placeholder="Mật khẩu">
-    <button id="btnLocalLogin">Đăng nhập test</button>
-    <button id="btnLocalSignup">Đăng ký test</button>
-    <p id="localMsg"></p>
-  </div>
-
-  <div id="userInfo" class="hidden">
-    <div class="menu">
-      <button id="btnOverview">Tổng quan</button>
-      <button id="btnManageDevices">Quản lý thiết bị (Admin)</button>
-      <button id="btnDeviceList">Danh sách thiết bị</button>
-      <button id="btnCreateLoan">Tạo yêu cầu mượn</button>
-      <button id="btnMyLoans">Yêu cầu của tôi</button>
-      <button id="btnManageLoans">Quản lý yêu cầu mượn (Admin)</button>
-      <button id="btnExportCSV">Xuất CSV thiết bị</button>
-      <button id="btnExportCSVLoan">Xuất CSV đơn mượn</button>
-    </div>
-  </div>
-
-  <div id="menuAdmin" class="hidden">
-    <div class="card">
-      <h3>Quản lý thiết bị (Admin)</h3>
-      <input type="text" id="eqName" placeholder="Tên thiết bị">
-      <input type="text" id="eqCode" placeholder="Mã thiết bị">
-      <input type="number" id="eqQty" placeholder="Số lượng">
-      <input type="text" id="eqDesc" placeholder="Mô tả">
-      <button id="btnAddEq">Thêm thiết bị</button>
-    </div>
-    <div id="equipmentListAdmin"></div>
-  </div>
-
-  <div id="menuUser" class="hidden">
-    <div id="equipmentList"></div>
-    <select id="loanEqSelect"></select>
-    <input type="number" id="loanQty" placeholder="Số lượng">
-    <input type="date" id="loanStart">
-    <input type="date" id="loanDue">
-    <input type="text" id="loanNote" placeholder="Ghi chú">
+<div id="userInfo" class="hidden">
+  <div class="menu">
+    <button id="btnOverview">Tổng quan</button>
+    <button id="btnManageDevices">Quản lý thiết bị (Admin)</button>
+    <button id="btnDeviceList">Danh sách thiết bị</button>
     <button id="btnCreateLoan">Tạo yêu cầu mượn</button>
-    <p id="loanCreateMsg"></p>
-    <div id="myLoans"></div>
+    <button id="btnMyLoans">Yêu cầu của tôi</button>
+    <button id="btnManageLoans">Quản lý yêu cầu mượn (Admin)</button>
+    <button id="btnExportCSV">Xuất CSV thiết bị</button>
+    <button id="btnExportCSVLoan">Xuất CSV đơn mượn</button>
   </div>
+</div>
 
-  <div id="menuAdminLoans" class="hidden">
-    <div id="allLoans"></div>
+<div id="menuAdmin" class="hidden">
+  <div class="card">
+    <h3>Quản lý thiết bị (Admin)</h3>
+    <input type="text" id="eqName" placeholder="Tên thiết bị">
+    <input type="text" id="eqCode" placeholder="Mã thiết bị">
+    <input type="number" id="eqQty" placeholder="Số lượng">
+    <input type="text" id="eqDesc" placeholder="Mô tả">
+    <button id="btnAddEq">Thêm thiết bị</button>
   </div>
+  <div id="equipmentListAdmin"></div>
+</div>
 
-  <script src="main.js"></script>
+<div id="menuUser" class="hidden">
+  <div id="equipmentList"></div>
+  <select id="loanEqSelect"></select>
+  <input type="number" id="loanQty" placeholder="Số lượng">
+  <input type="date" id="loanStart">
+  <input type="date" id="loanDue">
+  <input type="text" id="loanNote" placeholder="Ghi chú">
+  <button id="btnCreateLoan">Tạo yêu cầu mượn</button>
+  <p id="loanCreateMsg"></p>
+  <div id="myLoans"></div>
+</div>
+
+<div id="menuAdminLoans" class="hidden">
+  <div id="allLoans"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module" src="main.js"></script>
 </body>
 </html>

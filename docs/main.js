@@ -320,51 +320,73 @@ btnCreateLoan.onclick = async () => {
 // ================== MY LOANS ==================
 function renderLoanCard(id, d, adminView){
   let statusClass = "";
-  if (d.status==="pending") statusClass="status-pending";
-  else if (d.status==="approved" && !d.returned) statusClass="status-approved";
-  else if (d.status==="rejected") statusClass="status-rejected";
-  else if (d.returned) statusClass="status-returned";
+  if (d.status === "pending") statusClass = "status-pending";
+  else if (d.status === "approved" && !d.returned) statusClass = "status-approved";
+  else if (d.status === "rejected") statusClass = "status-rejected";
+  else if (d.returned) statusClass = "status-returned";
 
   const fmt = (ts)=>{
     if (!ts) return "";
-    try{ return ts.toDate ? ts.toDate().toLocaleDateString() : new Date(ts).toLocaleDateString(); }catch(e){ return ""; }
+    try { return ts.toDate ? ts.toDate().toLocaleDateString() : new Date(ts).toLocaleDateString(); } 
+    catch(e) { return ""; }
   };
 
-  let adminControls = "";
-if (adminView && d.status==="pending"){
-  const reqStart = fmt(d.requestedStart), reqDue = fmt(d.requestedDue);
-  adminControls += `
-    <div style="margin-top:6px">
-      <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>
-      <label>Bắt đầu: <input type="date" id="ap_start_${id}" value="${reqStart || ''}"></label>
-      <label>Hạn trả: <input type="date" id="ap_due_${id}" value="${reqDue || ''}" placeholder="Không bắt buộc"></label>
-      <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
-      <button onclick="rejectLoan('${id}')">Từ chối</button>
-      <button onclick="deleteLoan('${id}')">Xóa</button>
-    </div>`;
-}
-
-if (adminView && d.status==="approved" && !d.returned){
-  adminControls += `
-    <div style="margin-top:6px">
-      <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
-      <label>Gia hạn đến: <input type="date" id="extend_due_${id}" value="${d.dueAt ? fmt(d.dueAt) : ''}" placeholder="Không bắt buộc"></label>
-      <button onclick="extendLoan('${id}')">Gia hạn</button>
-      &nbsp; | &nbsp;
-      <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
-      <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
-      <button onclick="deleteLoan('${id}')">Xóa</button>
-    </div>`;
-}
-
-
-  let userControls = "";
-  if (!adminView && d.status==="pending"){
-    userControls = `<div style=\"margin-top:6px\">\n      <button onclick=\"editMyLoan('${id}')\">Sửa</button> <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n    </div>`;
+  let statusText = d.status.toUpperCase();
+  if(d.returned){
+    const retTime = d.returnedAt ? fmt(d.returnedAt) : fmt(new Date());
+    statusText += ` (ĐÃ TRẢ: ${retTime})`;
   }
 
-  return `\n    <div class=\"card\">\n      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>\n      <div>Người mượn: ${d.userEmail}</div>\n      <div class=\"${statusClass}\">\n        Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}\n      </div>\n      <div>Ghi chú: ${d.note||""}</div>\n      ${ (d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : "" }\n      ${ (d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : "" }\n      ${adminControls || userControls}\n    </div>\n  `;
+  let adminControls = "";
+  if(adminView && d.status === "pending"){
+    const reqStart = fmt(d.requestedStart), reqDue = fmt(d.requestedDue);
+    adminControls += `
+      <div style="margin-top:6px">
+        <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>
+        <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
+        <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
+        <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
+        <button onclick="rejectLoan('${id}')">Từ chối</button>
+        <button onclick="deleteLoan('${id}')">Xóa</button>
+      </div>`;
+  }
+  if(adminView && d.status === "approved" && !d.returned){
+    adminControls += `
+      <div style="margin-top:6px">
+        <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
+        <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
+        <button onclick="extendLoan('${id}')">Gia hạn</button>
+        &nbsp; | &nbsp;
+        <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
+        <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
+        <button onclick="deleteLoan('${id}')">Xóa</button>
+      </div>`;
+  }
+
+  let userControls = "";
+  if(!adminView && d.status === "pending"){
+    userControls = `
+      <div style="margin-top:6px">
+        <button onclick="editMyLoan('${id}')">Sửa</button> 
+        <button onclick="deleteLoan('${id}')">Xóa</button>
+      </div>`;
+  }
+
+  return `
+    <div class="card">
+      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>
+      <div>Người mượn: ${d.userEmail}</div>
+      <div class="${statusClass}">
+        Trạng thái: ${statusText}
+      </div>
+      <div>Ghi chú: ${d.note||""}</div>
+      ${(d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
+      ${(d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : ""}
+      ${adminControls || userControls}
+    </div>
+  `;
 }
+
 
 async function refreshMyLoans(){
   if (!currentUser) return;
@@ -480,8 +502,7 @@ window.returnLoanWithTime = async (id) => {
   if (retEl && retEl.value) {
     retDate = new Date(retEl.value);
   } else {
-    // Nếu admin không chọn ngày, dùng thời gian hiện tại
-    retDate = new Date();
+    retDate = new Date(); // mốc hiện tại nếu không chọn
   }
 
   const loanRef = doc(db, "loans", id);
@@ -493,10 +514,7 @@ window.returnLoanWithTime = async (id) => {
   const eqSnap = await getDoc(eqRef);
   const eq = eqSnap.data();
 
-  // Cộng lại số lượng thiết bị
   await updateDoc(eqRef, { quantity_available: (eq.quantity_available || 0) + loan.quantity });
-
-  // Cập nhật trạng thái đã trả
   await updateDoc(loanRef, {
     returned: true,
     returnedAt: Timestamp.fromDate(retDate)
@@ -505,6 +523,7 @@ window.returnLoanWithTime = async (id) => {
   await refreshAllLoans();
   await refreshMyLoans();
 };
+
 
 
 // User edit / delete

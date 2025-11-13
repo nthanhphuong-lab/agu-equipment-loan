@@ -1,238 +1,219 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+// ================== CONFIG ==================
+const firebaseConfig = { /* your firebase config */ };
+const ALLOWED_DOMAIN = "agu.edu.vn";
+const ADMIN_EMAILS = ["nthanhphuong@agu.edu.vn","admin2@agu.edu.vn"];
+const TEST_EMAILS = ["test1@local.test","test2@local.test"];
+function isAllowedEmail(email){ return email.endsWith("@"+ALLOWED_DOMAIN) || TEST_EMAILS.includes(email); }
 
-// FIREBASE CONFIG
-const firebaseConfig = { /* your config */ };
+// ================== IMPORTS ==================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut,
+  onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+import {
+  getFirestore, collection, addDoc, doc, getDoc, getDocs,
+  updateDoc, serverTimestamp, query, where, orderBy
+} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+// ================== INIT ==================
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser=null;
-let isAdmin=false;
+// ================== DOM ==================
+const loginArea = document.getElementById("loginArea");
+const loginMessage = document.getElementById("loginMessage");
+const btnGoogleLogin = document.getElementById("btnGoogleLogin");
+const btnLogout = document.getElementById("btnLogout");
+const userInfo = document.getElementById("userInfo");
+const userEmailEl = document.getElementById("userEmail");
+const userRoleTag = document.getElementById("userRoleTag");
 
-// ================= LOGIN / LOGOUT =================
-const loginArea=document.getElementById("loginArea");
-const userInfo=document.getElementById("userInfo");
-const userEmailSpan=document.getElementById("userEmail");
-const userRoleTag=document.getElementById("userRoleTag");
-const mainNav=document.getElementById("mainNav");
+// DOM thiết bị, loan
+const eqName = document.getElementById("eqName");
+const eqCode = document.getElementById("eqCode");
+const eqQty = document.getElementById("eqQty");
+const eqDesc = document.getElementById("eqDesc");
+const btnAddEq = document.getElementById("btnAddEq");
+const equipmentListAdmin = document.getElementById("equipmentListAdmin");
 
-function login(user,email,isAdminFlag){
-  currentUser=user;
-  isAdmin=isAdminFlag;
-  loginArea.classList.add("hidden");
-  userInfo.classList.remove("hidden");
-  userEmailSpan.textContent=email;
-  userRoleTag.textContent=isAdmin?"ADMIN":"USER";
-  userRoleTag.className="tag "+(isAdmin?"admin":"user");
-  document.querySelectorAll(".admin-only").forEach(btn=>{
-    btn.style.display=isAdmin?"inline-block":"none";
-  });
-  mainNav.classList.remove("hidden");
-  showPage("page-devices");
-}
+const equipmentList = document.getElementById("equipmentList");
+const loanEqSelect = document.getElementById("loanEqSelect");
+const loanQty = document.getElementById("loanQty");
+const loanStart = document.getElementById("loanStart");
+const loanDue = document.getElementById("loanDue");
+const loanNote = document.getElementById("loanNote");
+const btnCreateLoan = document.getElementById("btnCreateLoan");
+const loanCreateMsg = document.getElementById("loanCreateMsg");
+const myLoans = document.getElementById("myLoans");
+const allLoans = document.getElementById("allLoans");
+const statsSummary = document.getElementById("statsSummary");
+const statsChartCanvas = document.getElementById("statsChart");
 
-// ================= NAV / TAB =================
+const mainNav = document.getElementById("mainNav");
+const allPages = () => Array.from(document.querySelectorAll(".page"));
+const tabButtons = () => Array.from(document.querySelectorAll(".tab-btn"));
+
+// ================== STATE ==================
+let currentUser=null, isAdmin=false, statsChart=null;
+
+// ================== NAV ==================
 function showPage(pageId){
-  document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
-  document.getElementById(pageId).classList.remove("hidden");
-  document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));
-  document.querySelector(`.tab-btn[data-page="${pageId}"]`)?.classList.add("active");
+  allPages().forEach(p => p.classList.add("hidden"));
+  tabButtons().forEach(b => b.classList.remove("active"));
+  const el = document.getElementById(pageId);
+  if (el) el.classList.remove("hidden");
+  const btn = tabButtons().find(b => b.dataset.page === pageId);
+  if (btn) btn.classList.add("active");
+
   if(pageId==="page-stats") refreshStats();
+  else if(pageId==="page-my-loans") refreshMyLoans();
+  else if(pageId==="page-admin-loans") refreshAllLoans();
+  else if(["page-devices","page-create-loan","page-admin-eq"].includes(pageId)) refreshEquipmentLists();
 }
-document.querySelectorAll(".tab-btn").forEach(btn=>{
-  btn.addEventListener("click",()=>showPage(btn.dataset.page));
+
+tabButtons().forEach(btn=>btn.addEventListener("click",()=>showPage(btn.dataset.page)));
+
+// ================== AUTH ==================
+btnGoogleLogin.onclick = async ()=>{
+  loginMessage.textContent="";
+  const provider = new GoogleAuthProvider();
+  try{
+    const result = await signInWithPopup(auth, provider);
+    const email = result.user.email;
+    if(!isAllowedEmail(email)){
+      await signOut(auth);
+      loginMessage.textContent = `Chỉ chấp nhận tài khoản @${ALLOWED_DOMAIN}`;
+      return;
+    }
+  }catch(e){ console.error(e); loginMessage.textContent="Đăng nhập thất bại."; }
+};
+
+btnLogout.onclick=async()=>await signOut(auth);
+
+// Local login test
+const localEmail=document.getElementById("localEmail");
+const localPass=document.getElementById("localPass");
+const btnLocalSignup=document.getElementById("btnLocalSignup");
+const btnLocalLogin=document.getElementById("btnLocalLogin");
+const localMsg=document.getElementById("localMsg");
+
+btnLocalSignup.onclick=async()=>{
+  localMsg.textContent="";
+  const email = (localEmail.value||"").trim(), pass = localPass.value||"";
+  if(!email||!pass){ localMsg.textContent="Nhập email và mật khẩu."; return; }
+  if(!isAllowedEmail(email)){ localMsg.textContent="Email không được phép."; return; }
+  try{ await createUserWithEmailAndPassword(auth,email,pass); localMsg.textContent="Tạo tài khoản test thành công."; }
+  catch(e){ console.error(e); localMsg.textContent="Đăng ký thất bại."; }
+};
+
+btnLocalLogin.onclick=async()=>{
+  localMsg.textContent="";
+  const email = (localEmail.value||"").trim(), pass = localPass.value||"";
+  if(!email||!pass){ localMsg.textContent="Nhập email và mật khẩu."; return; }
+  try{ await signInWithEmailAndPassword(auth,email,pass); localMsg.textContent="Đăng nhập test thành công."; }
+  catch(e){ console.error(e); localMsg.textContent="Đăng nhập thất bại."; }
+};
+
+onAuthStateChanged(auth, async(user)=>{
+  if(!user){ currentUser=null; isAdmin=false; loginArea.classList.remove("hidden"); userInfo.classList.add("hidden"); mainNav.classList.add("hidden"); allPages().forEach(p=>p.classList.add("hidden")); return; }
+  if(!isAllowedEmail(user.email)){
+    await signOut(auth);
+    loginMessage.textContent=`Chỉ chấp nhận @${ALLOWED_DOMAIN} hoặc email test.`;
+    return;
+  }
+  currentUser=user; isAdmin=ADMIN_EMAILS.includes(user.email);
+  userEmailEl.textContent=user.email;
+  userRoleTag.textContent=isAdmin?"ADMIN":"USER";
+  userRoleTag.classList.remove("admin","user");
+  userRoleTag.classList.add(isAdmin?"admin":"user");
+
+  loginArea.classList.add("hidden"); userInfo.classList.remove("hidden"); mainNav.classList.remove("hidden");
+  document.querySelectorAll(".admin-only").forEach(b=>{ b.style.display=isAdmin?"inline-block":"none"; });
+
+  showPage(isAdmin?"page-admin-eq":"page-devices");
+  refreshEquipmentLists(); refreshMyLoans(); if(isAdmin) refreshAllLoans();
 });
 
-// ================= EQUIPMENT =================
-const equipmentList=document.getElementById("equipmentList");
-const equipmentListAdmin=document.getElementById("equipmentListAdmin");
-const eqName=document.getElementById("eqName");
-const eqCode=document.getElementById("eqCode");
-const eqQty=document.getElementById("eqQty");
-const eqDesc=document.getElementById("eqDesc");
-const btnAddEq=document.getElementById("btnAddEq");
-const loanEqSelect=document.getElementById("loanEqSelect");
+// ================== THIẾT BỊ ==================
+btnAddEq.onclick=async()=>{
+  if(!isAdmin||!currentUser) return;
+  const name=eqName.value.trim(), code=eqCode.value.trim(), qty=parseInt(eqQty.value,10)||0, desc=eqDesc.value.trim();
+  if(!name||!code||qty<=0){ alert("Nhập đầy đủ tên, mã, số lượng > 0."); return; }
+  try{
+    await addDoc(collection(db,"equipment"),{name,code,description:desc,quantity_total:qty,quantity_available:qty,is_active:true});
+    eqName.value=eqCode.value=eqDesc.value=""; eqQty.value="";
+    refreshEquipmentLists();
+  }catch(e){ console.error(e); alert("Không thêm được."); }
+};
 
 async function refreshEquipmentLists(){
-  equipmentList.innerHTML="";
-  equipmentListAdmin.innerHTML="";
-  loanEqSelect.innerHTML='<option value="">-- Chọn thiết bị --</option>';
+  equipmentList.innerHTML="Đang tải..."; equipmentListAdmin.innerHTML=""; loanEqSelect.innerHTML='<option value="">-- Chọn thiết bị --</option>';
   const snap=await getDocs(collection(db,"equipment"));
-  snap.forEach(docSnap=>{
-    const d=docSnap.data(); const id=docSnap.id;
-    if(!d.is_active) return;
-    // User view
-    const line=document.createElement("div");
-    line.className="card";
-    line.innerHTML=`<div><strong>${d.name}</strong> (${d.code})</div>
-      <div>Còn: ${d.quantity_available} / ${d.quantity_total}</div>
-      <div class="muted">${d.description||""}</div>`;
-    equipmentList.appendChild(line);
-
-    // Loan select
-    const opt=document.createElement("option");
-    opt.value=id; opt.textContent=d.name;
-    loanEqSelect.appendChild(opt);
-
-    // Admin view
-    if(isAdmin){
-      const lineAdmin=document.createElement("div");
-      lineAdmin.className="card";
-      lineAdmin.innerHTML=`
-        <div><strong>${d.name}</strong> (${d.code})</div>
-        <div>Còn: ${d.quantity_available} / ${d.quantity_total}</div>
-        <div class="muted">ID: ${id}</div>
-        <div>${d.description||""}</div>
-        <button onclick="editEquipment('${id}')">Cập nhật</button>
-        <button onclick="deleteEquipment('${id}')">Xóa</button>
-      `;
-      equipmentListAdmin.appendChild(lineAdmin);
-    }
+  let htmlUser="", htmlAdmin="";
+  snap.forEach(d=>{
+    const data=d.data(), id=d.id; if(!data.is_active) return;
+    const line=`<div class="card"><strong>${data.name}</strong> (${data.code})<br>Còn: ${data.quantity_available}/${data.quantity_total}<br>${data.description||""}</div>`;
+    htmlUser+=line; if(isAdmin) htmlAdmin+=line;
+    const opt=document.createElement("option"); opt.value=id; opt.textContent=`${data.name} (${data.code}) — còn ${data.quantity_available}`; loanEqSelect.appendChild(opt);
   });
+  equipmentList.innerHTML=htmlUser||"<p>Chưa có thiết bị.</p>";
+  equipmentListAdmin.innerHTML=htmlAdmin||"<p>Chưa có thiết bị.</p>";
 }
-btnAddEq.addEventListener("click",async ()=>{
-  const name=eqName.value.trim();
-  const code=eqCode.value.trim();
-  const qty=parseInt(eqQty.value,10);
-  const desc=eqDesc.value.trim();
-  if(!name||!code||isNaN(qty)||qty<=0) return alert("Nhập đầy đủ tên, mã, số lượng");
-  const id=code+"_"+Date.now();
-  await setDoc(doc(db,"equipment",id),{
-    name, code, quantity_total:qty, quantity_available:qty, description:desc, is_active:true
-  });
-  eqName.value=""; eqCode.value=""; eqQty.value=""; eqDesc.value="";
-  await refreshEquipmentLists();
-});
 
-// ================= UPDATE / DELETE EQUIPMENT =================
-window.editEquipment=async (id)=>{
-  const eqRef=doc(db,"equipment",id);
-  const eqSnap=await getDocs(eqRef);
-  // ...simplify for demo, can use prompt as above
+// ================== YÊU CẦU MƯỢN ==================
+btnCreateLoan.onclick=async()=>{
+  if(!currentUser){ alert("Cần đăng nhập."); return; }
+  const eqId=loanEqSelect.value, qty=parseInt(loanQty.value,10)||0, note=loanNote.value.trim();
+  const start=loanStart.value, due=loanDue.value;
+  if(!eqId||qty<=0||!start||!due){ loanCreateMsg.textContent="Nhập đầy đủ thông tin."; return; }
+  try{
+    const eqRef=doc(db,"equipment",eqId); const eqSnap=await getDoc(eqRef);
+    const eq=eqSnap.data();
+    if(eq.quantity_available<qty){ loanCreateMsg.textContent="Không đủ số lượng."; return; }
+    await addDoc(collection(db,"loans"),{user:currentUser.email,equipment:doc(db,"equipment",eqId),quantity:qty,start, due,note,status:"pending",createdAt:serverTimestamp()});
+    await updateDoc(eqRef,{quantity_available:eq.quantity_available-qty});
+    loanCreateMsg.textContent="Yêu cầu mượn đã gửi.";
+    refreshEquipmentLists(); refreshMyLoans();
+  }catch(e){ console.error(e); loanCreateMsg.textContent="Không tạo được yêu cầu."; }
 };
 
-window.deleteEquipment=async (id)=>{
-  if(!confirm("Xác nhận xóa thiết bị này?")) return;
-  const eqRef=doc(db,"equipment",id);
-  await updateDoc(eqRef,{is_active:false});
-  await refreshEquipmentLists();
-};
-
-// ================= LOAN =================
-const loanQty=document.getElementById("loanQty");
-const loanStart=document.getElementById("loanStart");
-const loanDue=document.getElementById("loanDue");
-const loanNote=document.getElementById("loanNote");
-const btnCreateLoan=document.getElementById("btnCreateLoan");
-const loanCreateMsg=document.getElementById("loanCreateMsg");
-
-btnCreateLoan.addEventListener("click",async ()=>{
-  const eqId=loanEqSelect.value;
-  const qty=parseInt(loanQty.value,10);
-  const start=loanStart.value;
-  const due=loanDue.value;
-  const note=loanNote.value.trim();
-  if(!eqId||isNaN(qty)||qty<=0||!start||!due) return alert("Nhập đầy đủ thông tin");
-  const id=Date.now()+"_"+currentUser.email;
-  await setDoc(doc(db,"loans",id),{
-    userEmail:currentUser.email,
-    eqId, quantity:qty, start, due, note, status:"pending", createdAt:Date.now()
-  });
-  loanCreateMsg.textContent="Đã gửi yêu cầu mượn!";
-  loanQty.value=""; loanStart.value=""; loanDue.value=""; loanNote.value="";
-  refreshMyLoans();
-});
-
-// ================= MY LOANS =================
-const myLoans=document.getElementById("myLoans");
+// ================== HIỂN THỊ YÊU CẦU ==================
 async function refreshMyLoans(){
   if(!currentUser) return;
-  const snap=await getDocs(collection(db,"loans"));
-  myLoans.innerHTML="";
-  snap.forEach(d=>{
-    const l=d.data();
-    if(l.userEmail!==currentUser.email) return;
-    const eqNameDisplay=""; // có thể join với equipment collection
-    const line=document.createElement("div");
-    line.className="card";
-    line.innerHTML=`<div><strong>${eqNameDisplay}</strong></div>
-      <div>Số lượng: ${l.quantity}, Trạng thái: <span class="status-${l.status}">${l.status}</span></div>
-      <div>Ngày mượn: ${l.start} - ${l.due}</div>
-      <div>Ghi chú: ${l.note||""}</div>`;
-    myLoans.appendChild(line);
-  });
+  const q=query(collection(db,"loans"),where("user","==",currentUser.email),orderBy("createdAt","desc"));
+  const snap=await getDocs(q); let html="";
+  snap.forEach(d=>{ const l=d.data(); const eq=l.equipment?.id||"unknown"; html+=`<div class="card">${l.quantity} × ${eq}<br>${l.status}<br>${l.note||""}</div>`; });
+  myLoans.innerHTML=html||"<p>Chưa có yêu cầu.</p>";
 }
 
-// ================= STATS =================
-let statsChart=null;
-const statsSummary=document.getElementById("statsSummary");
+async function refreshAllLoans(){
+  if(!isAdmin) return;
+  const snap=await getDocs(collection(db,"loans"));
+  let html="";
+  snap.forEach(d=>{ const l=d.data(); const eq=l.equipment?.id||"unknown"; html+=`<div class="card">${l.user} mượn ${l.quantity} × ${eq}<br>${l.status}<br>${l.note||""}</div>`; });
+  allLoans.innerHTML=html||"<p>Chưa có yêu cầu.</p>";
+}
+
+// ================== THỐNG KÊ ==================
 async function refreshStats(){
-  if(!currentUser) return;
+  statsSummary.innerHTML="<p>Đang tải...</p>";
   const eqSnap=await getDocs(collection(db,"equipment"));
   const loanSnap=await getDocs(collection(db,"loans"));
-
-  const eqLabels=[], eqData=[];
-  eqSnap.forEach(d=>{
-    const e=d.data();
-    if(!e.is_active) return;
-    eqLabels.push(e.name);
-    eqData.push(e.quantity_available);
-  });
-
-  const statusCounts={pending:0,approved:0,rejected:0,returned:0};
-  loanSnap.forEach(d=>{
-    const l=d.data();
-    if(isAdmin || l.userEmail===currentUser.email){
-      if(statusCounts[l.status]!==undefined) statusCounts[l.status]++;
-    }
-  });
-
-  let summaryHtml="";
-  if(isAdmin){
-    let totalEq=0,totalAvailable=0,totalLoans=0;
-    eqSnap.forEach(d=>{ const e=d.data(); if(!e.is_active) return; totalEq+=e.quantity_total; totalAvailable+=e.quantity_available; });
-    loanSnap.forEach(()=>totalLoans++);
-    summaryHtml=`
-      <div class="card"><strong>Tổng số thiết bị:</strong> ${totalEq}</div>
-      <div class="card"><strong>Số thiết bị còn:</strong> ${totalAvailable}</div>
-      <div class="card"><strong>Tổng yêu cầu mượn:</strong> ${totalLoans}</div>
-    `;
-  } else {
-    summaryHtml=`
-      <div class="card"><strong>Số yêu cầu đang chờ:</strong> ${statusCounts.pending}</div>
-      <div class="card"><strong>Số thiết bị đang mượn:</strong> ${statusCounts.approved}</div>
-      <div class="card"><strong>Số yêu cầu bị từ chối:</strong> ${statusCounts.rejected}</div>
-      <div class="card"><strong>Số thiết bị đã trả:</strong> ${statusCounts.returned}</div>
-    `;
-  }
-  statsSummary.innerHTML=summaryHtml;
-
-  const ctx=document.getElementById("statsChart").getContext("2d");
+  let totalEq=0, totalAvailable=0, statusCounts={pending:0,approved:0,rejected:0,returned:0};
+  eqSnap.forEach(d=>{ const e=d.data(); if(!e.is_active) return; totalEq+=e.quantity_total; });
+  loanSnap.forEach(d=>{ const l=d.data(); statusCounts[l.status] = (statusCounts[l.status]||0)+1; });
+  statsSummary.innerHTML=`
+    <div class="card">Tổng thiết bị: ${totalEq}</div>
+    <div class="card">Yêu cầu pending: ${statusCounts.pending||0}</div>
+    <div class="card">Yêu cầu approved: ${statusCounts.approved||0}</div>
+    <div class="card">Yêu cầu rejected: ${statusCounts.rejected||0}</div>
+    <div class="card">Yêu cầu returned: ${statusCounts.returned||0}</div>
+  `;
   if(statsChart) statsChart.destroy();
-  if(isAdmin){
-    statsChart=new Chart(ctx,{
-      type:'bar',
-      data:{labels:eqLabels,datasets:[{label:'Số lượng còn',data:eqData,backgroundColor:'rgba(54,162,235,0.6)'}]},
-      options:{responsive:true,plugins:{legend:{display:true}},scales:{y:{beginAtZero:true}}}
-    });
-  } else {
-    statsChart=new Chart(ctx,{
-      type:'pie',
-      data:{labels:['Đang yêu cầu','Đang mượn','Bị từ chối','Đã trả'],
-        datasets:[{data:[
-          statusCounts.pending,statusCounts.approved,statusCounts.rejected,statusCounts.returned
-        ],backgroundColor:[
-          'rgba(255,206,86,0.6)','rgba(54,162,235,0.6)','rgba(255,99,132,0.6)','rgba(75,192,192,0.6)'
-        ]}]
-      },
-      options:{responsive:true,plugins:{legend:{position:'bottom'}}}
-    });
-  }
+  statsChart=new Chart(statsChartCanvas,{type:'bar',data:{labels:Object.keys(statusCounts),datasets:[{label:'Số lượng',data:Object.values(statusCounts),backgroundColor:['#b45309','#065f46','#991b1b','#2563eb']}]},options:{}});
 }
 
-// Auto refresh stats khi tab thống kê mở
-setInterval(()=>{if(!document.getElementById("page-stats").classList.contains("hidden")) refreshStats();},30000);
-
-// ================= INIT =================
-refreshEquipmentLists();
-refreshMyLoans();
+// ================== AUTO REFRESH STATS ==================
+setInterval(()=>{ if(!document.getElementById("page-stats").classList.contains("hidden")) refreshStats(); },30000);

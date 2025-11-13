@@ -443,31 +443,56 @@ async function refreshMyLoans(){
   }
 }
 
+// ================== STATE FILTER ==================
+let loanFilter = { status:"", from:null, to:null };
+
+// ================== ÁP DỤNG FILTER ==================
+document.getElementById("applyLoanFilter").onclick = ()=>{
+  const status = document.getElementById("filterStatus").value;
+  const fromStr = document.getElementById("filterFrom").value;
+  const toStr   = document.getElementById("filterTo").value;
+  loanFilter.status = status;
+  loanFilter.from = fromStr ? new Date(fromStr+"T00:00:00") : null;
+  loanFilter.to   = toStr   ? new Date(toStr+"T23:59:59") : null;
+  refreshAllLoans();
+};
+
+// ================== REFRESH ALL LOANS (ADMIN) ==================
 async function refreshAllLoans(){
   if (!isAdmin) return;
   allLoans.innerHTML = "Đang tải...";
   try{
-    const q = query(collection(db,"loans"), orderBy("createdAt","desc"));
-    const snap = await getDocs(q);
+    const snap = await getDocs(query(collection(db,"loans"), orderBy("createdAt","desc")));
     let html = "";
+
     snap.forEach(docSnap=>{
       const d = docSnap.data();
       if (d.deleted) return;
+
+      // --- APPLY FILTER ---
+      // lọc theo status
+      if (loanFilter.status){
+        if (loanFilter.status === "returned" && !d.returned) return;
+        else if (loanFilter.status !== "returned" && d.status !== loanFilter.status) return;
+      }
+
+      // lọc theo ngày trả (hoặc ngày tạo nếu chưa trả)
+      const dateToCompare = d.returned ? (d.returnedAt?.toDate ? d.returnedAt.toDate() : new Date(d.returnedAt || 0))
+                                       : (d.createdAt?.toDate ? d.createdAt.toDate() : new Date(d.createdAt || 0));
+      if (loanFilter.from && dateToCompare < loanFilter.from) return;
+      if (loanFilter.to && dateToCompare > loanFilter.to) return;
+      // --------------------
+
       html += renderLoanCard(docSnap.id,d,true);
     });
+
     allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }catch(e){
-    console.warn(e);
-    // fallback
-    const snap = await getDocs(collection(db,"loans"));
-    const arr = [];
-    snap.forEach(docSnap=>{ const d = docSnap.data(); if (!d.deleted) arr.push({id:docSnap.id,data:d}); });
-    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
-    let html = "";
-    for (const it of arr) html += renderLoanCard(it.id,it.data,true);
-    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+    console.error(e);
+    allLoans.innerHTML = "<p>Lỗi tải dữ liệu.</p>";
   }
 }
+
 
 // ================== ADMIN LOAN ACTIONS ==================
 window.approveLoanWithDates = async (id)=>{

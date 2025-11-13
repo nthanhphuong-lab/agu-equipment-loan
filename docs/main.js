@@ -1,5 +1,13 @@
 // ================== CONFIG ==================
-const firebaseConfig = { /* your firebase config */ };
+const firebaseConfig = {
+  apiKey: "AIzaSyALw-kDEXZeKBQk__Mnfrqogb7vKuPu92w",
+  authDomain: "qltb-37efe.firebaseapp.com",
+  projectId: "qltb-37efe",
+  storageBucket: "qltb-37efe.firebasestorage.app",
+  messagingSenderId: "405387499869",
+  appId: "1:405387499869:web:78c8799d558f0acc4270b4",
+  measurementId: "G-QKQFMLZBD2"
+};
 const ALLOWED_DOMAIN = "agu.edu.vn";
 const ADMIN_EMAILS = ["nthanhphuong@agu.edu.vn","admin2@agu.edu.vn"];
 const TEST_EMAILS = ["test1@local.test","test2@local.test"];

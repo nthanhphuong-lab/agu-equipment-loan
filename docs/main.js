@@ -473,20 +473,39 @@ window.extendLoan = async (id)=>{
   await refreshAllLoans(); await refreshMyLoans();
 };
 
-window.returnLoanWithTime = async (id)=>{
-  const retEl = document.getElementById("ret_at_"+id);
-  if (!retEl || !retEl.value){ alert("Chọn thời điểm trả"); return; }
-  const retDate = new Date(retEl.value);
-  const loanRef = doc(db,"loans",id);
+window.returnLoanWithTime = async (id) => {
+  const retEl = document.getElementById("ret_at_" + id);
+  let retDate;
+
+  if (retEl && retEl.value) {
+    retDate = new Date(retEl.value);
+  } else {
+    // Nếu admin không chọn ngày, dùng thời gian hiện tại
+    retDate = new Date();
+  }
+
+  const loanRef = doc(db, "loans", id);
   const loanSnap = await getDoc(loanRef);
+  if (!loanSnap.exists()) return;
+
   const loan = loanSnap.data();
-  const eqRef = doc(db,"equipment",loan.equipmentId);
+  const eqRef = doc(db, "equipment", loan.equipmentId);
   const eqSnap = await getDoc(eqRef);
   const eq = eqSnap.data();
-  await updateDoc(eqRef,{quantity_available: eq.quantity_available + loan.quantity});
-  await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
-  await refreshAllLoans(); await refreshMyLoans();
+
+  // Cộng lại số lượng thiết bị
+  await updateDoc(eqRef, { quantity_available: (eq.quantity_available || 0) + loan.quantity });
+
+  // Cập nhật trạng thái đã trả
+  await updateDoc(loanRef, {
+    returned: true,
+    returnedAt: Timestamp.fromDate(retDate)
+  });
+
+  await refreshAllLoans();
+  await refreshMyLoans();
 };
+
 
 // User edit / delete
 window.editMyLoan = async (id)=>{

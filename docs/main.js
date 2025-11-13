@@ -218,4 +218,109 @@ async function refreshEquipmentLists(){
     const line = `
       <div class="card">
         <div><strong>${d.name}</strong> (${d.code})</div>
-        <div>Còn: ${d.quantity_available} / ${d.quantity_total}</div
+        <div>Còn: ${d.quantity_available} / ${d.quantity_total}</div>
+        <div class="muted">ID: ${id}</div>
+        <div>${d.description||""}</div>
+      </div>`;
+    htmlUser += line;
+    if (isAdmin) htmlAdmin += line;
+
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = `${d.name} (${d.code}) — còn ${d.quantity_available}/${d.quantity_total}`;
+    loanEqSelect.appendChild(opt);
+  });
+
+  equipmentList.innerHTML = htmlUser || "<p>Chưa có thiết bị.</p>";
+  if (isAdmin) equipmentListAdmin.innerHTML = htmlAdmin || "<p>Chưa có thiết bị.</p>";
+
+  // set mặc định ngày
+  const today = new Date();
+  const pad = n=>String(n).padStart(2,"0");
+  const toInput = dt=>`${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+  if (!loanStart.value) loanStart.value = toInput(today);
+  if (!loanDue.value){
+    const t = new Date(today); t.setDate(t.getDate()+7);
+    loanDue.value = toInput(t);
+  }
+}
+
+// ================== TÌM KIẾM & LỌC ==================
+let cacheEquip = [];
+let cacheLoans = [];
+
+function renderEquipList(){
+  const kw = (searchEquip?.value||"").trim().toLowerCase();
+  const list = !kw ? cacheEquip : cacheEquip.filter(x =>
+    x.name.toLowerCase().includes(kw) || x.code.toLowerCase().includes(kw)
+  );
+  let html = "";
+  list.forEach(({id, name, code, quantity_available, quantity_total, description})=>{
+    html += `
+      <div class="card">
+        <div><strong>${name}</strong> (${code})</div>
+        <div>Còn: ${quantity_available} / ${quantity_total}</div>
+        <div class="muted">ID: ${id}</div>
+        <div>${description||""}</div>
+      </div>`;
+  });
+  if (equipmentList) equipmentList.innerHTML = html || "<p>Không có thiết bị khớp tìm kiếm.</p>";
+}
+
+searchEquip?.addEventListener("input", renderEquipList);
+
+function renderLoansAdmin(){
+  const kw = (searchLoans?.value||"").trim().toLowerCase();
+  const status = (filterStatus?.value||"");
+  let arr = cacheLoans.slice();
+
+  if (status){
+    if (status === "returned"){
+      arr = arr.filter(x => x.data.returned === true);
+    } else {
+      arr = arr.filter(x => x.data.status === status);
+    }
+  }
+  if (kw){
+    arr = arr.filter(x => {
+      const d = x.data;
+      return (d.userEmail||"").toLowerCase().includes(kw) ||
+             (d.equipmentName||"").toLowerCase().includes(kw);
+    });
+  }
+  let html = "";
+  arr.forEach(x => html += renderLoanCard(x.id, x.data, true));
+  allLoans.innerHTML = html || "<p>Không có đơn khớp bộ lọc/tìm kiếm.</p>";
+}
+
+searchLoans?.addEventListener("input", renderLoansAdmin);
+filterStatus?.addEventListener("change", renderLoansAdmin);
+
+// ================== DASHBOARD ==================
+async function buildDashboard(){
+  try{
+    const eqSnap = await getDocs(collection(db,"equipment"));
+    let equipCount = 0;
+    eqSnap.forEach(d=>{ const x=d.data(); if (x.is_active) equipCount++; });
+
+    const lnSnap = await getDocs(collection(db,"loans"));
+    let pending=0, borrowing=0, overdue=0;
+    const now = Date.now();
+    lnSnap.forEach(ds=>{
+      const d = ds.data();
+      if (d.status==="pending") pending++;
+      if (d.status==="approved" && !d.returned){
+        borrowing++;
+        const dueMs = d.dueAt?.toMillis?.();
+        if (dueMs && dueMs < now) overdue++;
+      }
+    });
+
+    statEquip.textContent = equipCount;
+    statPending.textContent = pending;
+    statBorrowing.textContent = borrowing;
+    statOverdue.textContent = overdue;
+  }catch(e){
+    console.warn("buildDashboard:", e);
+  }
+}

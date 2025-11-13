@@ -93,11 +93,24 @@ document.addEventListener("click", (e) => {
   if (t.classList && t.classList.contains("tab-btn")) {
     showPage(t.dataset.page);
   }
+  
 });
+document.getElementById("applyLoanFilter").onclick = ()=>{
+  const status = document.getElementById("filterStatus").value;
+  const fromStr = document.getElementById("filterFrom").value;
+  const toStr   = document.getElementById("filterTo").value;
+  loanFilter.status = status;
+  loanFilter.from = fromStr ? new Date(fromStr+"T00:00:00") : null;
+  loanFilter.to   = toStr   ? new Date(toStr+"T23:59:59") : null;
+  refreshAllLoans();
+};
+
 
 // ================== STATE ==================
 let currentUser = null;
 let isAdmin = false;
+let loanFilter = { status:"", from:null, to:null };
+
 
 // ================== AUTH ==================
 btnGoogleLogin.onclick = async () => {
@@ -396,11 +409,26 @@ async function refreshMyLoans(){
     const q = query(collection(db,"loans"), where("userEmail","==", currentUser.email), orderBy("createdAt","desc"));
     const snap = await getDocs(q);
     let html = "";
+
     snap.forEach(docSnap=>{
-      const d = docSnap.data();
-      if (d.deleted) return;
-      html += renderLoanCard(docSnap.id,d,false);
-    });
+  const d = docSnap.data();
+  if (d.deleted) return;
+
+  // --- apply filter ---
+  if (loanFilter.status && (
+      loanFilter.status==="returned" ? !d.returned :
+      d.status !== loanFilter.status
+  )) return;
+
+  const created = d.createdAt?.toDate ? d.createdAt.toDate() : new Date(d.createdAt || 0);
+  if (loanFilter.from && created < loanFilter.from) return;
+  if (loanFilter.to && created > loanFilter.to) return;
+  // --------------------
+
+  html += renderLoanCard(docSnap.id,d,true);
+});
+
+    
     myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }catch(e){
     console.error(e);

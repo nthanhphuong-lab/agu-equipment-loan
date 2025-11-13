@@ -24,6 +24,8 @@
     .tab-btn.active{background:#111;color:#fff}
     .page{margin-top:8px}
     .muted{color:#6b7280}
+    .grid{display:grid;gap:8px}
+    .grid-cols-4{grid-template-columns:repeat(4,1fr)}
   </style>
 </head>
 <body>
@@ -34,15 +36,6 @@
   <div id="loginArea">
     <button id="btnGoogleLogin">Đăng nhập với Google @agu.edu.vn</button>
     <p id="loginMessage" class="status-rejected"></p>
-
-    <div id="localLoginArea" class="card" style="margin-top:12px;">
-      <h3>Đăng nhập local (test)</h3>
-      <input id="localEmail" placeholder="Email test (vd: test1@local.test)" />
-      <input id="localPass" type="password" placeholder="Mật khẩu" />
-      <button id="btnLocalSignup">Đăng ký test</button>
-      <button id="btnLocalLogin">Đăng nhập test</button>
-      <p id="localMsg" class="status-rejected"></p>
-    </div>
   </div>
 
   <!-- Thông tin người dùng -->
@@ -59,75 +52,27 @@
     <button class="tab-btn" data-page="page-devices">Danh sách thiết bị</button>
     <button class="tab-btn" data-page="page-create-loan">Tạo yêu cầu mượn</button>
     <button class="tab-btn" data-page="page-my-loans">Yêu cầu của tôi</button>
-    <button class="tab-btn admin-only" data-page="page-admin-loans">Quản lý yêu cầu mượn (Admin)</button>
-    <button id="btnExportEquip" class="admin-only">Xuất CSV thiết bị</button>
-    <button id="btnExportLoans" class="admin-only">Xuất CSV đơn mượn</button>
+    <button class="tab-btn admin-only" data-page="page-admin-loans">Quản lý yêu cầu (Admin)</button>
   </nav>
 
   <!-- DASHBOARD -->
   <section id="page-dashboard" class="page hidden">
-    <h3>Tổng quan</h3>
-    <div class="card">
-      <div><b>Thiết bị:</b> <span id="statEquip">0</span></div>
-      <div><b>Đang mượn:</b> <span id="statBorrowing">0</span></div>
-      <div><b>Chờ duyệt:</b> <span id="statPending">0</span></div>
-      <div><b>Quá hạn:</b> <span id="statOverdue">0</span></div>
+    <h2>📊 Tổng quan</h2>
+    <div id="dashboardStats" class="grid grid-cols-4">
+      <div class="card"><b>Tổng thiết bị</b><br><span id="statTotalDevices">0</span></div>
+      <div class="card"><b>Đang sẵn sàng</b><br><span id="statAvailableDevices">0</span></div>
+      <div class="card"><b>Yêu cầu đang chờ</b><br><span id="statPendingRequests">0</span></div>
+      <div class="card"><b>Yêu cầu đã duyệt</b><br><span id="statApprovedRequests">0</span></div>
     </div>
+    <canvas id="dashboardChart" height="100"></canvas>
   </section>
 
-  <!-- 1) Quản lý thiết bị (Admin) -->
-  <section id="page-admin-eq" class="page hidden">
-    <h3>Quản lý thiết bị (Admin)</h3>
-    <div id="adminEquipment">
-      <input id="eqName" placeholder="Tên thiết bị" />
-      <input id="eqCode" placeholder="Mã thiết bị" />
-      <input id="eqQty" type="number" placeholder="Số lượng" min="1" />
-      <input id="eqDesc" placeholder="Mô tả" />
-      <button id="btnAddEq">Thêm thiết bị</button>
-      <div id="equipmentListAdmin" style="margin-top:8px;"></div>
-    </div>
-  </section>
-
-  <!-- 2) Danh sách thiết bị -->
-  <section id="page-devices" class="page hidden">
-    <h3>Danh sách thiết bị</h3>
-    <input id="searchEquip" placeholder="Tìm theo tên/mã…" />
-    <div id="equipmentList"></div>
-  </section>
-
-  <!-- 3) Tạo yêu cầu mượn -->
-  <section id="page-create-loan" class="page hidden">
-    <h3>Tạo yêu cầu mượn</h3>
-    <select id="loanEqSelect"><option value="">-- Chọn thiết bị --</option></select>
-    <input id="loanQty" type="number" placeholder="Số lượng" min="1" />
-    <input id="loanStart" type="date" />
-    <input id="loanDue" type="date" />
-    <input id="loanNote" placeholder="Ghi chú" />
-    <button id="btnCreateLoan">Gửi yêu cầu</button>
-    <p id="loanCreateMsg" class="status-approved"></p>
-  </section>
-
-  <!-- 4) Yêu cầu của tôi -->
-  <section id="page-my-loans" class="page hidden">
-    <h3>Yêu cầu của tôi</h3>
-    <div id="myLoans"></div>
-  </section>
-
-  <!-- 5) Quản lý yêu cầu mượn (Admin) -->
-  <section id="page-admin-loans" class="page hidden">
-    <h3>Quản lý yêu cầu mượn (Admin)</h3>
-    <div style="margin:6px 0">
-      <select id="filterStatus">
-        <option value="">-- Lọc trạng thái --</option>
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="returned">Returned</option>
-      </select>
-      <input id="searchLoans" placeholder="Tìm theo email / thiết bị…" />
-    </div>
-    <div id="adminLoans"><div id="allLoans"></div></div>
-  </section>
+  <!-- Các trang khác -->
+  <section id="page-admin-eq" class="page hidden"><h3>Quản lý thiết bị (Admin)</h3><div id="equipmentListAdmin"></div></section>
+  <section id="page-devices" class="page hidden"><h3>Danh sách thiết bị</h3><div id="equipmentList"></div></section>
+  <section id="page-create-loan" class="page hidden"><h3>Tạo yêu cầu mượn</h3><div id="createLoanForm"></div></section>
+  <section id="page-my-loans" class="page hidden"><h3>Yêu cầu của tôi</h3><div id="myLoans"></div></section>
+  <section id="page-admin-loans" class="page hidden"><h3>Quản lý yêu cầu mượn</h3><div id="allLoans"></div></section>
 
   <script type="module" src="./main.js"></script>
 </body>

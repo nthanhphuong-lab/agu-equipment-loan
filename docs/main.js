@@ -12,6 +12,7 @@ const firebaseConfig = {
 const ALLOWED_DOMAIN = "agu.edu.vn";
 const ADMIN_EMAILS = ["nthanhphuong@agu.edu.vn", "admin2@agu.edu.vn"];
 const TEST_EMAILS = ["test1@local.test", "test2@local.test"];
+const MANAGER_EMAILS = ["manager1@agu.edu.vn", "manager2@agu.edu.vn"]; // Cập nhật email quản lý
 
 function isAllowedEmail(email){
   return email.endsWith("@"+ALLOWED_DOMAIN) || TEST_EMAILS.includes(email);
@@ -159,7 +160,7 @@ onAuthStateChanged(auth, async (user) => {
 
   currentUser = user;
   isAdmin = ADMIN_EMAILS.includes(user.email);
-  isManager = MANAGER_EMAILS.includes(user.email);
+  isManager = MANAGER_EMAILS.includes(user.email);  // Kiểm tra quản lý
 
   userEmailEl.textContent = user.email;
   userRoleTag.textContent = isAdmin ? "ADMIN" : (isManager ? "MANAGER" : "USER");
@@ -170,11 +171,11 @@ onAuthStateChanged(auth, async (user) => {
   document.getElementById("userInfo").classList.remove("hidden");
 
   mainNav.classList.remove("hidden");
-  document.querySelectorAll(".admin-only").forEach(b=>{
+  document.querySelectorAll(".admin-only").forEach(b => {
     if (isAdmin) b.classList.remove("hidden"); else b.classList.add("hidden");
   });
 
-  document.querySelectorAll(".manager-only").forEach(b=>{
+  document.querySelectorAll(".manager-only").forEach(b => {
     if (isManager) b.classList.remove("hidden"); else b.classList.add("hidden");
   });
 

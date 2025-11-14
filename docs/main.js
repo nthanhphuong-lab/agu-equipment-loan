@@ -104,6 +104,7 @@ document.getElementById("loanSort").addEventListener("change", e=>{
     loanSort = e.target.value;
     renderLoans();
 });
+let allLoans = [];
 
 // ================== AUTH ==================
 btnGoogleLogin.onclick = async () => {
@@ -559,10 +560,21 @@ function sortLoans(list){
   });
 }
 
+// ================== RENDER LOANS ==================
 function renderLoans(){
   let filtered = applyLoanFilters(allLoans);
   let sorted = sortLoans(filtered);
   displayLoans(sorted);
+}
+
+// ================== DISPLAY ==================
+function displayLoans(list){
+  const box = document.getElementById("loanList");
+  box.innerHTML = "";
+
+  list.forEach(l=>{
+    box.innerHTML += renderLoanCard(l.id, l, true);
+  });
 }
 
 // ================== REFRESH MY LOANS ==================

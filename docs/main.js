@@ -105,7 +105,11 @@ document.getElementById("loanSort").addEventListener("change", e=>{
     renderLoans();
 });
 let allLoansData = []; // Mảng chứa danh sách loan cho admin
-
+// Thay cho onchange trong HTML
+document.getElementById("loanSort").addEventListener("change", e => {
+    loanSort = e.target.value;
+    renderLoans();
+});
 
 
 // ================== AUTH ==================

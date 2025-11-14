@@ -98,7 +98,7 @@ document.addEventListener("click", (e) => {
 // ================== STATE ==================
 let currentUser = null;
 let isAdmin = false;
-
+let loanFilters = { status: '', equipmentId: '', from: '', to: '' }; // <-- Đây là chỗ thêm
 // ================== AUTH ==================
 btnGoogleLogin.onclick = async () => {
   loginMessage.textContent = "";
@@ -347,58 +347,48 @@ function renderLoanCard(id, d, adminView){
   return `\n    <div class=\"card\">\n      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>\n      <div>Người mượn: ${d.userEmail}</div>\n      <div class=\"${statusClass}\">\n        Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}\n      </div>\n      <div>Ghi chú: ${d.note||""}</div>\n      ${ (d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : "" }\n      ${ (d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : "" }\n      ${adminControls || userControls}\n    </div>\n  `;
 }
 
-async function refreshMyLoans(){
-  if (!currentUser) return;
-  myLoans.innerHTML = "Đang tải...";
-  try{
-    // query by userEmail (consistent with documents created above)
-    const q = query(collection(db,"loans"), where("userEmail","==", currentUser.email), orderBy("createdAt","desc"));
-    const snap = await getDocs(q);
-    let html = "";
-    snap.forEach(docSnap=>{
-      const d = docSnap.data();
-      if (d.deleted) return;
-      html += renderLoanCard(docSnap.id,d,false);
-    });
-    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
-  }catch(e){
-    console.error(e);
-    // fallback: load all and filter client-side (nếu composite index missing)
-    const snap = await getDocs(collection(db,"loans"));
-    const arr = [];
-    snap.forEach(docSnap=>{ const d = docSnap.data(); if (!d.deleted && d.userEmail===currentUser.email) arr.push({id:docSnap.id,data:d}); });
-    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
-    let html = "";
-    for (const it of arr) html += renderLoanCard(it.id,it.data,false);
-    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
-  }
+// ================== LOANS + FILTERS ==================
+function applyLoanFilters(loans){
+  return loans.filter(l=>{
+    if (l.deleted) return false;
+    if (loanFilters.status && l.status!==loanFilters.status) return false;
+    if (loanFilters.equipmentId && l.equipmentId!==loanFilters.equipmentId) return false;
+    const created = l.createdAt?.toDate ? l.createdAt.toDate() : new Date();
+    if (loanFilters.from && created < new Date(loanFilters.from)) return false;
+    if (loanFilters.to && created > new Date(loanFilters.to)) return false;
+    return true;
+  });
 }
 
 async function refreshAllLoans(){
-  if (!isAdmin) return;
-  allLoans.innerHTML = "Đang tải...";
-  try{
-    const q = query(collection(db,"loans"), orderBy("createdAt","desc"));
-    const snap = await getDocs(q);
-    let html = "";
-    snap.forEach(docSnap=>{
-      const d = docSnap.data();
-      if (d.deleted) return;
-      html += renderLoanCard(docSnap.id,d,true);
-    });
-    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
-  }catch(e){
-    console.warn(e);
-    // fallback
-    const snap = await getDocs(collection(db,"loans"));
-    const arr = [];
-    snap.forEach(docSnap=>{ const d = docSnap.data(); if (!d.deleted) arr.push({id:docSnap.id,data:d}); });
-    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
-    let html = "";
-    for (const it of arr) html += renderLoanCard(it.id,it.data,true);
-    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
-  }
+  if (!isAdmin) return; allLoans.innerHTML="Đang tải...";
+  const snap = await getDocs(collection(db,"loans"));
+  let all = []; snap.forEach(d=>all.push(d.data()?{id:d.id,data:d.data()}:null));
+  all = all.map(a=>({id:a.id,data:a.data}));
+  const filtered = applyLoanFilters(all.map(a=>a.data)); // <-- Áp dụng bộ lọc ở đây
+  let html = '';
+  filtered.forEach(d=>html += renderLoanCard(d.id,d,true));
+  allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
 }
+// ← Code Filter UI events nằm ngay ở đây
+const btnApplyLoanFilter = document.getElementById("btnApplyLoanFilter");
+const btnResetLoanFilter = document.getElementById("btnResetLoanFilter");
+btnApplyLoanFilter.onclick = () => {
+  loanFilters.status = document.getElementById("filterStatus").value;
+  loanFilters.equipmentId = document.getElementById("filterEquipment").value;
+  loanFilters.from = document.getElementById("filterFrom").value;
+  loanFilters.to = document.getElementById("filterTo").value;
+  refreshAllLoans();
+};
+btnResetLoanFilter.onclick = () => {
+  loanFilters = { status: '', equipmentId: '', from: '', to: '' };
+  document.getElementById("filterStatus").value = '';
+  document.getElementById("filterEquipment").value = '';
+  document.getElementById("filterFrom").value = '';
+  document.getElementById("filterTo").value = '';
+  refreshAllLoans();
+}
+
 
 // ================== ADMIN LOAN ACTIONS ==================
 window.approveLoanWithDates = async (id)=>{

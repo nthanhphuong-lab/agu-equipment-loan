@@ -101,29 +101,25 @@
   <!-- 5) Quản lý yêu cầu mượn (Admin) -->
   <section id="page-admin-loans" class="page hidden">
     <h3>Quản lý yêu cầu mượn (Admin)</h3>
-       <div id="loan-filters" class="filters">
-    <select id="filter-status">
-        <option value="">Tất cả trạng thái</option>
-        <option value="pending">Chờ duyệt</option>
-        <option value="approved">Đã duyệt</option>
-        <option value="returned">Đã trả</option>
-    </select>
+     <div id="loanFiltersUI" class="filters">
+  <select id="filterStatus">
+    <option value="">-- Tất cả trạng thái --</option>
+    <option value="pending">Chờ duyệt</option>
+    <option value="approved">Đang mượn</option>
+    <option value="returned">Đã trả</option>
+  </select>
 
-    <select id="filter-equipment">
-        <option value="">Tất cả thiết bị</option>
-    </select>
+  <select id="filterEquipment">
+    <option value="">-- Tất cả thiết bị --</option>
+  </select>
 
-    <label>Từ ngày:</label>
-    <input type="date" id="filter-date-from">
+  <input type="date" id="filterFrom" placeholder="Từ ngày">
+  <input type="date" id="filterTo" placeholder="Đến ngày">
 
-    <label>Đến ngày:</label>
-    <input type="date" id="filter-date-to">
-
-    <label>Hạn trả đến:</label>
-    <input type="date" id="filter-return-date">
-
-    <button id="btn-reset-filters">Reset</button>
+  <button id="btnApplyLoanFilter">Áp dụng</button>
+  <button id="btnResetLoanFilter">Reset</button>
 </div>
+
 
     <div id="adminLoans">
       <div id="allLoans"></div>

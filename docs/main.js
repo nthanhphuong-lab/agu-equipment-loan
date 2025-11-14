@@ -104,7 +104,7 @@ document.getElementById("loanSort").addEventListener("change", e=>{
     loanSort = e.target.value;
     renderLoans();
 });
-let allLoans = [];
+
 
 
 

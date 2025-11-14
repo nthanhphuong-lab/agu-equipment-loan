@@ -359,7 +359,32 @@ function applyLoanFilters(loans){
     return true;
   });
 }
-
+async function refreshMyLoans(){
+  if (!currentUser) return;
+  myLoans.innerHTML = "Đang tải...";
+  try{
+    // query by userEmail (consistent with documents created above)
+    const q = query(collection(db,"loans"), where("userEmail","==", currentUser.email), orderBy("createdAt","desc"));
+    const snap = await getDocs(q);
+    let html = "";
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      if (d.deleted) return;
+      html += renderLoanCard(docSnap.id,d,false);
+    });
+    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }catch(e){
+    console.error(e);
+    // fallback: load all and filter client-side (nếu composite index missing)
+    const snap = await getDocs(collection(db,"loans"));
+    const arr = [];
+    snap.forEach(docSnap=>{ const d = docSnap.data(); if (!d.deleted && d.userEmail===currentUser.email) arr.push({id:docSnap.id,data:d}); });
+    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
+    let html = "";
+    for (const it of arr) html += renderLoanCard(it.id,it.data,false);
+    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }
+}
 async function refreshAllLoans(){
   if (!isAdmin) return; allLoans.innerHTML="Đang tải...";
   const snap = await getDocs(collection(db,"loans"));

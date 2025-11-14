@@ -543,18 +543,18 @@ function sortLoans(list){
   });
 }
 
-function renderLoans(){
+// ================== RENDER LOANS ==================
+window.renderLoans = function(){
   if(isAdmin) refreshAllLoans();
   else refreshMyLoans();
-}
-
+};
 
 // ================== DISPLAY ==================
-function displayLoans(list){
+window.displayLoans = function(list){
   const box = document.getElementById("loanList");
   box.innerHTML = "";
-  list.forEach(l=> box.innerHTML += renderLoanCard(l.id, l, true));
-}
+  list.forEach(l => box.innerHTML += renderLoanCard(l.id, l, true));
+};
 
 
 

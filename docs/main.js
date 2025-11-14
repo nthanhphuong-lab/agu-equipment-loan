@@ -347,6 +347,8 @@ function renderLoanCard(id, d, adminView){
   return `\n    <div class=\"card\">\n      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>\n      <div>Người mượn: ${d.userEmail}</div>\n      <div class=\"${statusClass}\">\n        Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}\n      </div>\n      <div>Ghi chú: ${d.note||""}</div>\n      ${ (d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : "" }\n      ${ (d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : "" }\n      ${adminControls || userControls}\n    </div>\n  `;
 }
 
+// main.js - Full Corrected Version with Filters + User Edit/Delete on Pending
+
 // ================== LOANS + FILTERS ==================
 function applyLoanFilters(loans){
   return loans.filter(l=>{
@@ -359,43 +361,47 @@ function applyLoanFilters(loans){
     return true;
   });
 }
+
 async function refreshMyLoans(){
   if (!currentUser) return;
   myLoans.innerHTML = "Đang tải...";
   try{
-    // query by userEmail (consistent with documents created above)
     const q = query(collection(db,"loans"), where("userEmail","==", currentUser.email), orderBy("createdAt","desc"));
     const snap = await getDocs(q);
     let html = "";
     snap.forEach(docSnap=>{
       const d = docSnap.data();
-      if (d.deleted) return;
+      if(d.deleted) return;
       html += renderLoanCard(docSnap.id,d,false);
     });
     myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }catch(e){
     console.error(e);
-    // fallback: load all and filter client-side (nếu composite index missing)
     const snap = await getDocs(collection(db,"loans"));
     const arr = [];
-    snap.forEach(docSnap=>{ const d = docSnap.data(); if (!d.deleted && d.userEmail===currentUser.email) arr.push({id:docSnap.id,data:d}); });
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      if(!d.deleted && d.userEmail===currentUser.email) arr.push({id:docSnap.id,data:d});
+    });
     arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
     let html = "";
-    for (const it of arr) html += renderLoanCard(it.id,it.data,false);
+    for(const it of arr) html += renderLoanCard(it.id,it.data,false);
     myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }
 }
+
 async function refreshAllLoans(){
-  if (!isAdmin) return; allLoans.innerHTML="Đang tải...";
+  if(!isAdmin) return; allLoans.innerHTML="Đang tải...";
   const snap = await getDocs(collection(db,"loans"));
   let all = []; snap.forEach(d=>all.push(d.data()?{id:d.id,data:d.data()}:null));
   all = all.map(a=>({id:a.id,data:a.data}));
-  const filtered = applyLoanFilters(all.map(a=>a.data)); // <-- Áp dụng bộ lọc ở đây
+  const filtered = applyLoanFilters(all.map(a=>a.data));
   let html = '';
-  filtered.forEach(d=>html += renderLoanCard(d.id,d,true));
+  filtered.forEach((d,i)=> html += renderLoanCard(all[i].id,d,true));
   allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
 }
-// ← Code Filter UI events nằm ngay ở đây
+
+// Filter UI events (Admin page)
 const btnApplyLoanFilter = document.getElementById("btnApplyLoanFilter");
 const btnResetLoanFilter = document.getElementById("btnResetLoanFilter");
 btnApplyLoanFilter.onclick = () => {
@@ -413,6 +419,23 @@ btnResetLoanFilter.onclick = () => {
   document.getElementById("filterTo").value = '';
   refreshAllLoans();
 }
+
+// ================== RENDER CARD WITH USER EDIT/DELETE ==================
+function renderLoanCard(id, data, isAdmin){
+  let html = `<div class="loan-card" data-id="${id}">`;
+  html += `<p>${data.equipmentName || data.equipmentId} - ${data.status}</p>`;
+  
+  if(isAdmin){
+    html += `<button class="btnApprove">Duyệt</button>`;
+    html += `<button class="btnDelete">Xóa</button>`;
+  } else if(data.status === "pending" && data.userEmail === currentUser.email){
+    html += `<button class="btnEdit">Sửa</button>`;
+    html += `<button class="btnDelete">Hủy</button>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 
 
 // ================== ADMIN LOAN ACTIONS ==================

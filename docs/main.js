@@ -387,30 +387,65 @@ function renderLoanCard(id, d, adminView) {
 }
 
 
+// main.js - Full Corrected Version with Filters + User/Admin Loan Management
+
 // ================== LOANS + FILTERS ==================
+let loanFilters = { status: '', equipmentId: '', from: '', to: '' };
+
 function applyLoanFilters(loans){
   return loans.filter(l=>{
     if (l.deleted) return false;
-    if (loanFilters.status && l.status!==loanFilters.status) return false;
-    if (loanFilters.equipmentId && l.equipmentId!==loanFilters.equipmentId) return false;
-    const created = l.createdAt?.toDate ? l.createdAt.toDate() : new Date();
-    if (loanFilters.from && created < new Date(loanFilters.from)) return false;
-    if (loanFilters.to && created > new Date(loanFilters.to)) return false;
+
+    // Filter trạng thái
+    if (loanFilters.status){
+      switch(loanFilters.status){
+        case "pending":
+          if (l.status !== "pending") return false;
+          break;
+        case "approved":
+          if (l.status !== "approved" || l.returned) return false;
+          break;
+        case "returned":
+          if (!l.returned) return false;
+          break;
+        case "rejected":
+          if (l.status !== "rejected") return false;
+          break;
+      }
+    }
+
+    // Filter theo thiết bị
+    if (loanFilters.equipmentId && l.equipmentId !== loanFilters.equipmentId) return false;
+
+    // Filter ngày
+    const startDate = l.startAt?.toDate ? l.startAt.toDate() : l.startAt ? new Date(l.startAt) : null;
+    const dueDate = l.dueAt?.toDate ? l.dueAt.toDate() : l.dueAt ? new Date(l.dueAt) : null;
+
+    if (loanFilters.from){
+      const from = new Date(loanFilters.from);
+      if (dueDate && dueDate < from) return false;
+    }
+    if (loanFilters.to){
+      const to = new Date(loanFilters.to);
+      if (startDate && startDate > to) return false;
+    }
+
     return true;
   });
 }
 
+// ================== REFRESH MY LOANS ==================
 async function refreshMyLoans(){
   if (!currentUser) return;
   myLoans.innerHTML = "Đang tải...";
   try{
-    const q = query(collection(db,"loans"), where("userEmail","==", currentUser.email), orderBy("createdAt","desc"));
+    const q = query(collection(db,"loans"), where("userEmail","==",currentUser.email), orderBy("createdAt","desc"));
     const snap = await getDocs(q);
     let html = "";
     snap.forEach(docSnap=>{
       const d = docSnap.data();
       if(d.deleted) return;
-      html += renderLoanCard(docSnap.id,d,false);
+      if(applyLoanFilters([d]).length > 0) html += renderLoanCard(docSnap.id,d,false);
     });
     myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }catch(e){
@@ -423,23 +458,35 @@ async function refreshMyLoans(){
     });
     arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
     let html = "";
-    for(const it of arr) html += renderLoanCard(it.id,it.data,false);
+    for(const it of arr){
+      if(applyLoanFilters([it.data]).length > 0) html += renderLoanCard(it.id,it.data,false);
+    }
     myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }
 }
 
+// ================== REFRESH ALL LOANS (ADMIN) ==================
 async function refreshAllLoans(){
-  if(!isAdmin) return; allLoans.innerHTML="Đang tải...";
-  const snap = await getDocs(collection(db,"loans"));
-  let all = []; snap.forEach(d=>all.push(d.data()?{id:d.id,data:d.data()}:null));
-  all = all.map(a=>({id:a.id,data:a.data}));
-  const filtered = applyLoanFilters(all.map(a=>a.data));
-  let html = '';
-  filtered.forEach((d,i)=> html += renderLoanCard(all[i].id,d,true));
-  allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  if(!isAdmin) return;
+  allLoans.innerHTML="Đang tải...";
+  try{
+    const snap = await getDocs(collection(db,"loans"));
+    let all = [];
+    snap.forEach(d=>{
+      const data = d.data();
+      if(data && !data.deleted) all.push({id:d.id,data:data});
+    });
+    const filtered = all.filter(a => applyLoanFilters([a.data]).length > 0);
+    let html = '';
+    filtered.forEach(d=> html += renderLoanCard(d.id,d.data,true));
+    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }catch(e){
+    console.error(e);
+    allLoans.innerHTML="<p>Không tải được dữ liệu.</p>";
+  }
 }
 
-// Filter UI events (Admin page)
+// ================== FILTER UI EVENTS ==================
 const btnApplyLoanFilter = document.getElementById("btnApplyLoanFilter");
 const btnResetLoanFilter = document.getElementById("btnResetLoanFilter");
 btnApplyLoanFilter.onclick = () => {
@@ -447,7 +494,7 @@ btnApplyLoanFilter.onclick = () => {
   loanFilters.equipmentId = document.getElementById("filterEquipment").value;
   loanFilters.from = document.getElementById("filterFrom").value;
   loanFilters.to = document.getElementById("filterTo").value;
-  refreshAllLoans();
+  if(isAdmin) refreshAllLoans(); else refreshMyLoans();
 };
 btnResetLoanFilter.onclick = () => {
   loanFilters = { status: '', equipmentId: '', from: '', to: '' };
@@ -455,8 +502,8 @@ btnResetLoanFilter.onclick = () => {
   document.getElementById("filterEquipment").value = '';
   document.getElementById("filterFrom").value = '';
   document.getElementById("filterTo").value = '';
-  refreshAllLoans();
-}
+  if(isAdmin) refreshAllLoans(); else refreshMyLoans();
+};
 
 
 

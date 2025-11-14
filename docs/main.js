@@ -392,11 +392,80 @@ function renderLoanCard(id, d, adminView) {
 }
 
 
-// main.js - Full Corrected Version with Filters + User/Admin Loan Management
+
+// ================== Populate thiết bị + Autocomplete ==================
+let equipmentNames = []; // lưu danh sách tên thiết bị cho autocomplete
+
+async function populateEquipmentFilter(){
+  const eqSelect = document.getElementById("filterEquipment");
+  const eqInput = document.getElementById("filterEquipmentName"); // ô nhập tay tên thiết bị
+  eqSelect.innerHTML = `<option value="">-- Tất cả thiết bị --</option>`; // default
+  equipmentNames = [];
+  try{
+    const snap = await getDocs(collection(db, "equipment"));
+    snap.forEach(docSnap=>{
+      const eq = docSnap.data();
+      const name = eq.name || eq.code || "";
+      equipmentNames.push(name);
+      eqSelect.innerHTML += `<option value="${docSnap.id}">${name}</option>`;
+    });
+  } catch(e){
+    console.error("Không tải được danh sách thiết bị:", e);
+  }
+
+  // Autocomplete gợi ý khi nhập tay tên thiết bị
+  if(eqInput){
+    eqInput.addEventListener("input", function(){
+      const val = this.value.toLowerCase();
+      const suggestions = equipmentNames.filter(n => n.toLowerCase().includes(val));
+
+      // Xóa dropdown cũ
+      let listId = "equipmentSuggestions";
+      let oldList = document.getElementById(listId);
+      if(oldList) oldList.remove();
+
+      if(!val || suggestions.length === 0) return;
+
+      const list = document.createElement("ul");
+      list.id = listId;
+      list.style.position = "absolute";
+      list.style.background = "#fff";
+      list.style.border = "1px solid #ccc";
+      list.style.padding = "5px";
+      list.style.margin = "0";
+      list.style.listStyle = "none";
+      list.style.maxHeight = "150px";
+      list.style.overflowY = "auto";
+      list.style.width = eqInput.offsetWidth + "px";
+
+      suggestions.forEach(name=>{
+        const item = document.createElement("li");
+        item.style.padding = "2px 5px";
+        item.style.cursor = "pointer";
+        item.textContent = name;
+        item.onclick = ()=>{
+          eqInput.value = name;
+          list.remove();
+        };
+        list.appendChild(item);
+      });
+
+      eqInput.parentNode.appendChild(list);
+    });
+
+    // Ẩn dropdown khi click ra ngoài
+    document.addEventListener("click", e => {
+      const list = document.getElementById("equipmentSuggestions");
+      if(list && e.target !== eqInput) list.remove();
+    });
+  }
+}
+
+// Gọi khi load admin page
+populateEquipmentFilter();
+
 
 // ================== LOANS + FILTERS ==================
-
-
 function applyLoanFilters(loans){
   return loans.filter(l=>{
     if (l.deleted) return false;

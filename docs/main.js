@@ -318,61 +318,74 @@ btnCreateLoan.onclick = async () => {
 };
 
 // ================== MY LOANS ==================
-
-function renderLoanCard(id, d, adminView){
+function renderLoanCard(id, d, adminView) {
+  // Xác định lớp màu trạng thái
   let statusClass = "";
-  if (d.status==="pending") statusClass="status-pending";
-  else if (d.status==="approved" && !d.returned) statusClass="status-approved";
-  else if (d.status==="rejected") statusClass="status-rejected";
-  else if (d.returned) statusClass="status-returned";
+  if (d.status === "pending") statusClass = "status-pending";
+  else if (d.status === "approved" && !d.returned) statusClass = "status-approved";
+  else if (d.status === "rejected") statusClass = "status-rejected";
+  else if (d.returned) statusClass = "status-returned";
 
-  const fmt = (ts)=>{
+  // Xác định văn bản hiển thị trạng thái
+  let displayStatus = "";
+  if (d.status === "pending") displayStatus = "Chờ duyệt";
+  else if (d.status === "approved" && !d.returned) displayStatus = "Đang mượn";
+  else if (d.returned) displayStatus = "Đã trả";
+  else if (d.status === "rejected") displayStatus = "Bị từ chối";
+
+  // Hàm định dạng ngày
+  const fmt = (ts) => {
     if (!ts) return "";
-    try{ return ts.toDate ? ts.toDate().toLocaleDateString() : new Date(ts).toLocaleDateString(); }catch(e){ return ""; }
+    try { return ts.toDate ? ts.toDate().toLocaleDateString() : new Date(ts).toLocaleDateString(); }
+    catch(e){ return ""; }
   };
 
+  // Controls dành cho admin
   let adminControls = "";
-  if (adminView && d.status==="pending"){
-    const reqStart = fmt(d.requestedStart), reqDue = fmt(d.requestedDue);
-    adminControls += `<div style="margin-top:6px">
-      <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>
-      <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
-      <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
-      <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
-      <button onclick="rejectLoan('${id}')">Từ chối</button>
-      <button onclick="deleteLoan('${id}')">Xóa</button>
-    </div>`;
-  }
-  if (adminView && d.status==="approved" && !d.returned){
-    adminControls += `<div style="margin-top:6px">
-      <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
-      <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
-      <button onclick="extendLoan('${id}')">Gia hạn</button>
-      &nbsp; | &nbsp;
-      <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
-      <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
-      <button onclick="deleteLoan('${id}')">Xóa</button>
-    </div>`;
+  if (adminView) {
+    if (d.status === "pending") {
+      adminControls += `<div style="margin-top:6px">
+        <div><em>Người mượn đề xuất:</em> ${fmt(d.requestedStart)||"-"} → ${fmt(d.requestedDue)||"-"}</div>
+        <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
+        <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
+        <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
+        <button onclick="rejectLoan('${id}')">Từ chối</button>
+        <button onclick="deleteLoan('${id}')">Xóa</button>
+      </div>`;
+    } else if (d.status === "approved" && !d.returned) {
+      adminControls += `<div style="margin-top:6px">
+        <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
+        <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
+        <button onclick="extendLoan('${id}')">Gia hạn</button>
+        &nbsp; | &nbsp;
+        <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
+        <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
+        <button onclick="deleteLoan('${id}')">Xóa</button>
+      </div>`;
+    }
   }
 
+  // Controls dành cho user (chỉ khi pending)
   let userControls = "";
-  if (!adminView && d.status==="pending"){
-    userControls = `<div style="margin-top:6px">
+  if (!adminView && d.status === "pending" && d.userEmail === currentUser.email) {
+    userControls += `<div style="margin-top:6px">
       <button onclick="editMyLoan('${id}')">Sửa</button>
       <button onclick="deleteLoan('${id}')">Xóa</button>
     </div>`;
   }
 
+  // Kết hợp nội dung card
   return `<div class="card">
-    <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>
+    <div><strong>${d.equipmentName || d.equipmentId}</strong> - SL: ${d.quantity}</div>
     <div>Người mượn: ${d.userEmail}</div>
-    <div class="${statusClass}">Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}</div>
+    <div class="${statusClass}">Trạng thái: ${displayStatus}${d.returned ? " (ĐÃ TRẢ)" : ""}</div>
     <div>Ghi chú: ${d.note||""}</div>
     ${(d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
     ${(d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : ""}
     ${adminControls || userControls}
   </div>`;
 }
+
 
 // ================== LOANS + FILTERS ==================
 function applyLoanFilters(loans){

@@ -543,6 +543,10 @@ function sortLoans(list){
   });
 }
 
+function renderLoans(){
+  if(isAdmin) refreshAllLoans();
+  else refreshMyLoans();
+}
 
 
 // ================== DISPLAY ==================

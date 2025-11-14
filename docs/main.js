@@ -106,12 +106,7 @@ document.getElementById("loanSort").addEventListener("change", e=>{
 });
 let allLoans = [];
 
-// ================== RENDER LOANS ==================
-function renderLoans(){
-  let filtered = applyLoanFilters(allLoans);
-  let sorted = sortLoans(filtered);
-  displayLoans(sorted);
-}
+
 
 // ================== AUTH ==================
 btnGoogleLogin.onclick = async () => {
@@ -566,7 +561,12 @@ function sortLoans(list){
     return 0;
   });
 }
-
+// ================== RENDER LOANS ==================
+function renderLoans(){
+  let filtered = applyLoanFilters(allLoans);
+  let sorted = sortLoans(filtered);
+  displayLoans(sorted);
+}
 
 // ================== DISPLAY ==================
 function displayLoans(list){

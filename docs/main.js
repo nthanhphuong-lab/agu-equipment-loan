@@ -327,26 +327,26 @@ function renderLoanCard(id, d, adminView) {
   else if (d.status === "rejected") statusClass = "status-rejected";
   else if (d.returned) statusClass = "status-returned";
 
-  // Xác định văn bản hiển thị trạng thái
-  let displayStatus = "";
-  if (d.status === "pending") displayStatus = "Chờ duyệt";
-  else if (d.status === "approved" && !d.returned) displayStatus = "Đang mượn";
-  else if (d.returned) displayStatus = "Đã trả";
-  else if (d.status === "rejected") displayStatus = "Bị từ chối";
-
   // Hàm định dạng ngày
   const fmt = (ts) => {
-    if (!ts) return "";
+    if (!ts) return "-";
     try { return ts.toDate ? ts.toDate().toLocaleDateString() : new Date(ts).toLocaleDateString(); }
-    catch(e){ return ""; }
+    catch(e){ return "-"; }
   };
+
+  // Xác định văn bản hiển thị trạng thái kèm thời gian
+  let displayStatus = "";
+  if (d.status === "pending") displayStatus = `Chờ duyệt (tạo: ${fmt(d.createdAt)})`;
+  else if (d.status === "approved" && !d.returned) displayStatus = `Đang mượn (${fmt(d.startAt)} → ${fmt(d.dueAt)})`;
+  else if (d.returned) displayStatus = `Đã trả (hạn: ${fmt(d.dueAt)})`;
+  else if (d.status === "rejected") displayStatus = `Bị từ chối (tạo: ${fmt(d.createdAt)})`;
 
   // Controls dành cho admin
   let adminControls = "";
   if (adminView) {
     if (d.status === "pending") {
       adminControls += `<div style="margin-top:6px">
-        <div><em>Người mượn đề xuất:</em> ${fmt(d.requestedStart)||"-"} → ${fmt(d.requestedDue)||"-"}</div>
+        <div><em>Người mượn đề xuất:</em> ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>
         <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
         <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
         <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
@@ -355,12 +355,16 @@ function renderLoanCard(id, d, adminView) {
       </div>`;
     } else if (d.status === "approved" && !d.returned) {
       adminControls += `<div style="margin-top:6px">
-        <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
+        <div><em>Đang mượn:</em> ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>
         <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
         <button onclick="extendLoan('${id}')">Gia hạn</button>
         &nbsp; | &nbsp;
         <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
         <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
+        <button onclick="deleteLoan('${id}')">Xóa</button>
+      </div>`;
+    } else if (d.status === "rejected" || d.returned) {
+      adminControls += `<div style="margin-top:6px">
         <button onclick="deleteLoan('${id}')">Xóa</button>
       </div>`;
     }
@@ -379,10 +383,10 @@ function renderLoanCard(id, d, adminView) {
   return `<div class="card">
     <div><strong>${d.equipmentName || d.equipmentId}</strong> - SL: ${d.quantity}</div>
     <div>Người mượn: ${d.userEmail}</div>
-    <div class="${statusClass}">Trạng thái: ${displayStatus}${d.returned ? " (ĐÃ TRẢ)" : ""}</div>
-    <div>Ghi chú: ${d.note||""}</div>
-    ${(d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
-    ${(d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : ""}
+    <div class="${statusClass}">Trạng thái: ${displayStatus}</div>
+    <div>Ghi chú: ${d.note || ""}</div>
+    ${(d.requestedStart || d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
+    ${(d.startAt || d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : ""}
     ${adminControls || userControls}
   </div>`;
 }

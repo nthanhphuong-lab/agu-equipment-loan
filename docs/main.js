@@ -98,7 +98,7 @@ document.addEventListener("click", (e) => {
 // ================== STATE ==================
 let currentUser = null;
 let isAdmin = false;
-let loanFilters = { status: '', equipmentId: '', from: '', to: '' }; // <-- Đây là chỗ thêm
+let loanFilters = { status: '', equipmentId: '', equipmentName: '', from: '', to: '' };
 
 // ================== AUTH ==================
 btnGoogleLogin.onclick = async () => {
@@ -419,8 +419,11 @@ function applyLoanFilters(loans){
       }
     }
 
-    // Filter theo thiết bị
+    // Filter theo dropdown thiết bị
     if (loanFilters.equipmentId && l.equipmentId !== loanFilters.equipmentId) return false;
+
+    // Filter theo tên thiết bị nhập tay
+    if (loanFilters.equipmentName && !l.equipmentName.toLowerCase().includes(loanFilters.equipmentName.toLowerCase())) return false;
 
     // Filter ngày
     const startDate = l.startAt?.toDate ? l.startAt.toDate() : l.startAt ? new Date(l.startAt) : null;
@@ -438,6 +441,7 @@ function applyLoanFilters(loans){
     return true;
   });
 }
+
 
 // ================== REFRESH MY LOANS ==================
 async function refreshMyLoans(){

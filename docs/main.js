@@ -584,44 +584,58 @@ async function refreshMyLoans(){
     console.error(e);
   }
 }
-
-
+// ================== REFRESH MY LOANS ==================
+async function refreshMyLoans(){
+  if (!currentUser) return;
+  myLoans.innerHTML = "Đang tải...";
+  try{
+    const q = query(collection(db,"loans"), where("userEmail","==",currentUser.email), orderBy("createdAt","desc"));
+    const snap = await getDocs(q);
+    let html = "";
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      if(d.deleted) return;
+      if(applyLoanFilters([d]).length > 0) html += renderLoanCard(docSnap.id,d,false);
+    });
+    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }catch(e){
+    console.error(e);
+    const snap = await getDocs(collection(db,"loans"));
+    const arr = [];
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      if(!d.deleted && d.userEmail===currentUser.email) arr.push({id:docSnap.id,data:d});
+    });
+    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
+    let html = "";
+    for(const it of arr){
+      if(applyLoanFilters([it.data]).length > 0) html += renderLoanCard(it.id,it.data,false);
+    }
+    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+  }
+}
 
 // ================== REFRESH ALL LOANS (ADMIN) ==================
 async function refreshAllLoans(){
   if(!isAdmin) return;
   allLoans.innerHTML="Đang tải...";
-
   try{
     const snap = await getDocs(collection(db,"loans"));
-    allLoansData = [];
-
-    snap.forEach(doc => {
-      const d = doc.data();
-      if(d && !d.deleted){
-        allLoansData.push({
-          id: doc.id,
-          ...d
-        });
-      }
+    let all = [];
+    snap.forEach(d=>{
+      const data = d.data();
+      if(data && !data.deleted) all.push({id:d.id,data:data});
     });
-
-    renderLoans();
-
+    const filtered = all.filter(a => applyLoanFilters([a.data]).length > 0);
+    let html = '';
+    filtered.forEach(d=> html += renderLoanCard(d.id,d.data,true));
+    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }catch(e){
     console.error(e);
     allLoans.innerHTML="<p>Không tải được dữ liệu.</p>";
   }
 }
 
-
-
-// ================== RENDER LOANS ==================
-function renderLoans(){
-  const filtered = applyLoanFilters(allLoansData);
-  const sorted = sortLoans(filtered);
-  displayLoans(sorted);
-}
 
 
 

@@ -318,6 +318,7 @@ btnCreateLoan.onclick = async () => {
 };
 
 // ================== MY LOANS ==================
+
 function renderLoanCard(id, d, adminView){
   let statusClass = "";
   if (d.status==="pending") statusClass="status-pending";
@@ -333,21 +334,45 @@ function renderLoanCard(id, d, adminView){
   let adminControls = "";
   if (adminView && d.status==="pending"){
     const reqStart = fmt(d.requestedStart), reqDue = fmt(d.requestedDue);
-    adminControls += `\n      <div style=\"margin-top:6px\">\n        <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>\n        <label>Bắt đầu: <input type=\"date\" id=\"ap_start_${id}\"></label>\n        <label>Hạn trả: <input type=\"date\" id=\"ap_due_${id}\"></label>\n        <button onclick=\"approveLoanWithDates('${id}')\">Duyệt</button>\n        <button onclick=\"rejectLoan('${id}')\">Từ chối</button>\n        <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n      </div>`;
+    adminControls += `<div style="margin-top:6px">
+      <div><em>Người mượn đề xuất:</em> ${reqStart||"-"} → ${reqDue||"-"}</div>
+      <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
+      <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
+      <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
+      <button onclick="rejectLoan('${id}')">Từ chối</button>
+      <button onclick="deleteLoan('${id}')">Xóa</button>
+    </div>`;
   }
   if (adminView && d.status==="approved" && !d.returned){
-    adminControls += `\n      <div style=\"margin-top:6px\">\n        <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>\n        <label>Gia hạn đến: <input type=\"date\" id=\"extend_due_${id}\"></label>\n        <button onclick=\"extendLoan('${id}')\">Gia hạn</button>\n        &nbsp; | &nbsp;\n        <label>Thời điểm trả: <input type=\"datetime-local\" id=\"ret_at_${id}\"></label>\n        <button onclick=\"returnLoanWithTime('${id}')\">Xác nhận trả</button>\n        <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n      </div>`;
+    adminControls += `<div style="margin-top:6px">
+      <div><em>Đang mượn:</em> ${fmt(d.startAt)||"-"} → ${fmt(d.dueAt)||"-"}</div>
+      <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
+      <button onclick="extendLoan('${id}')">Gia hạn</button>
+      &nbsp; | &nbsp;
+      <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
+      <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
+      <button onclick="deleteLoan('${id}')">Xóa</button>
+    </div>`;
   }
 
   let userControls = "";
   if (!adminView && d.status==="pending"){
-    userControls = `<div style=\"margin-top:6px\">\n      <button onclick=\"editMyLoan('${id}')\">Sửa</button> <button onclick=\"deleteLoan('${id}')\">Xóa</button>\n    </div>`;
+    userControls = `<div style="margin-top:6px">
+      <button onclick="editMyLoan('${id}')">Sửa</button>
+      <button onclick="deleteLoan('${id}')">Xóa</button>
+    </div>`;
   }
 
-  return `\n    <div class=\"card\">\n      <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>\n      <div>Người mượn: ${d.userEmail}</div>\n      <div class=\"${statusClass}\">\n        Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}\n      </div>\n      <div>Ghi chú: ${d.note||""}</div>\n      ${ (d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : "" }\n      ${ (d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : "" }\n      ${adminControls || userControls}\n    </div>\n  `;
+  return `<div class="card">
+    <div><strong>${d.equipmentName}</strong> - SL: ${d.quantity}</div>
+    <div>Người mượn: ${d.userEmail}</div>
+    <div class="${statusClass}">Trạng thái: ${d.status.toUpperCase()}${d.returned ? " (ĐÃ TRẢ)" : ""}</div>
+    <div>Ghi chú: ${d.note||""}</div>
+    ${(d.requestedStart||d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
+    ${(d.startAt||d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : ""}
+    ${adminControls || userControls}
+  </div>`;
 }
-
-// main.js - Full Corrected Version with Filters + User Edit/Delete on Pending
 
 // ================== LOANS + FILTERS ==================
 function applyLoanFilters(loans){
@@ -420,21 +445,7 @@ btnResetLoanFilter.onclick = () => {
   refreshAllLoans();
 }
 
-// ================== RENDER CARD WITH USER EDIT/DELETE ==================
-function renderLoanCard(id, data, isAdmin){
-  let html = `<div class="loan-card" data-id="${id}">`;
-  html += `<p>${data.equipmentName || data.equipmentId} - ${data.status}</p>`;
-  
-  if(isAdmin){
-    html += `<button class="btnApprove">Duyệt</button>`;
-    html += `<button class="btnDelete">Xóa</button>`;
-  } else if(data.status === "pending" && data.userEmail === currentUser.email){
-    html += `<button class="btnEdit">Sửa</button>`;
-    html += `<button class="btnDelete">Hủy</button>`;
-  }
-  html += `</div>`;
-  return html;
-}
+
 
 
 

@@ -561,12 +561,7 @@ function sortLoans(list){
     return 0;
   });
 }
-// ================== RENDER LOANS ==================
-function renderLoans(){
-  let filtered = applyLoanFilters(allLoans);
-  let sorted = sortLoans(filtered);
-  displayLoans(sorted);
-}
+
 
 // ================== DISPLAY ==================
 function displayLoans(list){
@@ -629,7 +624,12 @@ async function refreshAllLoans(){
     allLoans.innerHTML="<p>Không tải được dữ liệu.</p>";
   }
 }
-
+// ================== RENDER LOANS ==================
+function renderLoans(){
+  let filtered = applyLoanFilters(allLoans);
+  let sorted = sortLoans(filtered);
+  displayLoans(sorted);
+}
 // ================== FILTER UI EVENTS ==================
 const btnApplyLoanFilter = document.getElementById("btnApplyLoanFilter");
 const btnResetLoanFilter = document.getElementById("btnResetLoanFilter");

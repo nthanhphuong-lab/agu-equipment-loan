@@ -99,6 +99,7 @@ document.addEventListener("click", (e) => {
 let currentUser = null;
 let isAdmin = false;
 let loanFilters = { status: '', equipmentId: '', from: '', to: '' }; // <-- Đây là chỗ thêm
+
 // ================== AUTH ==================
 btnGoogleLogin.onclick = async () => {
   loginMessage.textContent = "";
@@ -390,7 +391,7 @@ function renderLoanCard(id, d, adminView) {
 // main.js - Full Corrected Version with Filters + User/Admin Loan Management
 
 // ================== LOANS + FILTERS ==================
-let loanFilters = { status: '', equipmentId: '', from: '', to: '' };
+
 
 function applyLoanFilters(loans){
   return loans.filter(l=>{

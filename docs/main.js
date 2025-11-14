@@ -104,7 +104,7 @@ document.getElementById("loanSort").addEventListener("change", e=>{
     loanSort = e.target.value;
     renderLoans();
 });
-
+let allLoansData = []; // Mảng chứa danh sách loan cho admin
 
 
 
@@ -476,38 +476,31 @@ async function populateEquipmentFilter(){
 populateEquipmentFilter();
 
 
+// =============== BIẾN TOÀN CỤC ===============
+//let allLoansData = []; // Mảng chứa danh sách loan cho admin
+
+
 // ================== LOANS + FILTERS ==================
 function applyLoanFilters(loans){
   return loans.filter(l=>{
     if (l.deleted) return false;
 
-    // Filter trạng thái
     if (loanFilters.status){
       switch(loanFilters.status){
-        case "pending":
-          if (l.status !== "pending") return false;
-          break;
-        case "approved":
-          if (l.status !== "approved" || l.returned) return false;
-          break;
-        case "returned":
-          if (!l.returned) return false;
-          break;
-        case "rejected":
-          if (l.status !== "rejected") return false;
-          break;
+        case "pending":   if (l.status !== "pending") return false; break;
+        case "approved":  if (l.status !== "approved" || l.returned) return false; break;
+        case "returned":  if (!l.returned) return false; break;
+        case "rejected":  if (l.status !== "rejected") return false; break;
       }
     }
 
-    // Filter theo dropdown thiết bị
     if (loanFilters.equipmentId && l.equipmentId !== loanFilters.equipmentId) return false;
 
-    // Filter theo tên thiết bị nhập tay
-    if (loanFilters.equipmentName && !l.equipmentName.toLowerCase().includes(loanFilters.equipmentName.toLowerCase())) return false;
+    if (loanFilters.equipmentName && !l.equipmentName.toLowerCase().includes(loanFilters.equipmentName.toLowerCase()))
+      return false;
 
-    // Filter ngày
     const startDate = l.startAt?.toDate ? l.startAt.toDate() : l.startAt ? new Date(l.startAt) : null;
-    const dueDate = l.dueAt?.toDate ? l.dueAt.toDate() : l.dueAt ? new Date(l.dueAt) : null;
+    const dueDate   = l.dueAt?.toDate   ? l.dueAt.toDate()   : l.dueAt   ? new Date(l.dueAt)   : null;
 
     if (loanFilters.from){
       const from = new Date(loanFilters.from);
@@ -521,39 +514,27 @@ function applyLoanFilters(loans){
     return true;
   });
 }
-///================ sap xep quan ly yeu cau (admin)========
 
+
+
+// ================== SORT ==================
 function sortLoans(list){
   return list.sort((a, b)=>{
-    const A = a || {};
-    const B = b || {};
+    const createdA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+    const createdB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
 
-    const createdA = A.createdAt?.toDate ? A.createdAt.toDate() : new Date(A.createdAt || 0);
-    const createdB = B.createdAt?.toDate ? B.createdAt.toDate() : new Date(B.createdAt || 0);
-
-    const dueA = A.dueAt?.toDate ? A.dueAt.toDate() : new Date(A.dueAt || 0);
-    const dueB = B.dueAt?.toDate ? B.dueAt.toDate() : new Date(B.dueAt || 0);
+    const dueA = a.dueAt?.toDate ? a.dueAt.toDate() : new Date(a.dueAt || 0);
+    const dueB = b.dueAt?.toDate ? b.dueAt.toDate() : new Date(b.dueAt || 0);
 
     switch(loanSort){
-
       case "createdAsc":  return createdA - createdB;
       case "createdDesc": return createdB - createdA;
-
-      case "equipmentAsc":  
-        return (A.equipmentName || "").localeCompare(B.equipmentName || "");
-      case "equipmentDesc":
-        return (B.equipmentName || "").localeCompare(A.equipmentName || "");
-
-      case "userAsc":
-        return (A.userName || "").localeCompare(B.userName || "");
-      case "userDesc":
-        return (B.userName || "").localeCompare(A.userName || "");
-
-      case "statusAsc":
-        return (A.status || "").localeCompare(B.status || "");
-      case "statusDesc":
-        return (B.status || "").localeCompare(A.status || "");
-
+      case "equipmentAsc":  return (a.equipmentName || "").localeCompare(b.equipmentName || "");
+      case "equipmentDesc": return (b.equipmentName || "").localeCompare(a.equipmentName || "");
+      case "userAsc": return (a.userName || "").localeCompare(b.userName || "");
+      case "userDesc": return (b.userName || "").localeCompare(a.userName || "");
+      case "statusAsc": return (a.status || "").localeCompare(b.status || "");
+      case "statusDesc": return (b.status || "").localeCompare(a.status || "");
       case "dueAsc": return dueA - dueB;
       case "dueDesc": return dueB - dueA;
     }
@@ -563,73 +544,87 @@ function sortLoans(list){
 }
 
 
+
 // ================== DISPLAY ==================
 function displayLoans(list){
   const box = document.getElementById("loanList");
   box.innerHTML = "";
-
-  list.forEach(l=>{
-    box.innerHTML += renderLoanCard(l.id, l, true);
-  });
+  list.forEach(l=> box.innerHTML += renderLoanCard(l.id, l, true));
 }
+
+
 
 // ================== REFRESH MY LOANS ==================
 async function refreshMyLoans(){
   if (!currentUser) return;
   myLoans.innerHTML = "Đang tải...";
   try{
-    const q = query(collection(db,"loans"), where("userEmail","==",currentUser.email), orderBy("createdAt","desc"));
+    const q = query(
+      collection(db,"loans"),
+      where("userEmail","==",currentUser.email),
+      orderBy("createdAt","desc")
+    );
+
     const snap = await getDocs(q);
-    let html = "";
-    snap.forEach(docSnap=>{
-      const d = docSnap.data();
-      if(d.deleted) return;
-      if(applyLoanFilters([d]).length > 0) html += renderLoanCard(docSnap.id,d,false);
+    let arr = [];
+
+    snap.forEach(doc => {
+      const d = doc.data();
+      if(!d.deleted) arr.push({id: doc.id, ...d});
     });
+
+    arr = applyLoanFilters(arr);
+
+    let html = "";
+    arr.forEach(l => html += renderLoanCard(l.id, l, false));
+
     myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+
   }catch(e){
     console.error(e);
-    const snap = await getDocs(collection(db,"loans"));
-    const arr = [];
-    snap.forEach(docSnap=>{
-      const d = docSnap.data();
-      if(!d.deleted && d.userEmail===currentUser.email) arr.push({id:docSnap.id,data:d});
-    });
-    arr.sort((a,b)=> (b.data.createdAt?.toMillis?.() ?? 0) - (a.data.createdAt?.toMillis?.() ?? 0));
-    let html = "";
-    for(const it of arr){
-      if(applyLoanFilters([it.data]).length > 0) html += renderLoanCard(it.id,it.data,false);
-    }
-    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
   }
 }
+
+
 
 // ================== REFRESH ALL LOANS (ADMIN) ==================
 async function refreshAllLoans(){
   if(!isAdmin) return;
   allLoans.innerHTML="Đang tải...";
+
   try{
     const snap = await getDocs(collection(db,"loans"));
-    let all = [];
-    snap.forEach(d=>{
-      const data = d.data();
-      if(data && !data.deleted) all.push({id:d.id,data:data});
+    allLoansData = [];
+
+    snap.forEach(doc => {
+      const d = doc.data();
+      if(d && !d.deleted){
+        allLoansData.push({
+          id: doc.id,
+          ...d
+        });
+      }
     });
-    const filtered = all.filter(a => applyLoanFilters([a.data]).length > 0);
-    let html = '';
-    filtered.forEach(d=> html += renderLoanCard(d.id,d.data,true));
-    allLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
+
+    renderLoans();
+
   }catch(e){
     console.error(e);
     allLoans.innerHTML="<p>Không tải được dữ liệu.</p>";
   }
 }
+
+
+
 // ================== RENDER LOANS ==================
 function renderLoans(){
-  let filtered = applyLoanFilters(allLoans);
-  let sorted = sortLoans(filtered);
+  const filtered = applyLoanFilters(allLoansData);
+  const sorted = sortLoans(filtered);
   displayLoans(sorted);
 }
+
+
+
 // ================== FILTER UI EVENTS ==================
 const btnApplyLoanFilter = document.getElementById("btnApplyLoanFilter");
 const btnResetLoanFilter = document.getElementById("btnResetLoanFilter");

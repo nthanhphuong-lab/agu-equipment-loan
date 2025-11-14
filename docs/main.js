@@ -559,36 +559,6 @@ async function refreshMyLoans(){
   if (!currentUser) return;
   myLoans.innerHTML = "Đang tải...";
   try{
-    const q = query(
-      collection(db,"loans"),
-      where("userEmail","==",currentUser.email),
-      orderBy("createdAt","desc")
-    );
-
-    const snap = await getDocs(q);
-    let arr = [];
-
-    snap.forEach(doc => {
-      const d = doc.data();
-      if(!d.deleted) arr.push({id: doc.id, ...d});
-    });
-
-    arr = applyLoanFilters(arr);
-
-    let html = "";
-    arr.forEach(l => html += renderLoanCard(l.id, l, false));
-
-    myLoans.innerHTML = html || "<p>Chưa có yêu cầu mượn nào.</p>";
-
-  }catch(e){
-    console.error(e);
-  }
-}
-// ================== REFRESH MY LOANS ==================
-async function refreshMyLoans(){
-  if (!currentUser) return;
-  myLoans.innerHTML = "Đang tải...";
-  try{
     const q = query(collection(db,"loans"), where("userEmail","==",currentUser.email), orderBy("createdAt","desc"));
     const snap = await getDocs(q);
     let html = "";

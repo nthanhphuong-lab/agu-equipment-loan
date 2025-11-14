@@ -99,6 +99,11 @@ document.addEventListener("click", (e) => {
 let currentUser = null;
 let isAdmin = false;
 let loanFilters = { status: '', equipmentId: '', equipmentName: '', from: '', to: '' };
+let loanSort = "";
+document.getElementById("loanSort").addEventListener("change", e=>{
+    loanSort = e.target.value;
+    renderLoans();
+});
 
 // ================== AUTH ==================
 btnGoogleLogin.onclick = async () => {
@@ -318,6 +323,9 @@ btnCreateLoan.onclick = async () => {
   }catch(e){ console.error(e); loanCreateMsg.textContent = "Gửi yêu cầu thất bại: " + (e.code||e.message); }
 };
 
+
+
+
 // ================== MY LOANS ==================
 function renderLoanCard(id, d, adminView) {
   // Xác định lớp màu trạng thái
@@ -510,7 +518,52 @@ function applyLoanFilters(loans){
     return true;
   });
 }
+///================ sap xep quan ly yeu cau (admin)========
 
+function sortLoans(list){
+  return list.sort((a, b)=>{
+    const A = a || {};
+    const B = b || {};
+
+    const createdA = A.createdAt?.toDate ? A.createdAt.toDate() : new Date(A.createdAt || 0);
+    const createdB = B.createdAt?.toDate ? B.createdAt.toDate() : new Date(B.createdAt || 0);
+
+    const dueA = A.dueAt?.toDate ? A.dueAt.toDate() : new Date(A.dueAt || 0);
+    const dueB = B.dueAt?.toDate ? B.dueAt.toDate() : new Date(B.dueAt || 0);
+
+    switch(loanSort){
+
+      case "createdAsc":  return createdA - createdB;
+      case "createdDesc": return createdB - createdA;
+
+      case "equipmentAsc":  
+        return (A.equipmentName || "").localeCompare(B.equipmentName || "");
+      case "equipmentDesc":
+        return (B.equipmentName || "").localeCompare(A.equipmentName || "");
+
+      case "userAsc":
+        return (A.userName || "").localeCompare(B.userName || "");
+      case "userDesc":
+        return (B.userName || "").localeCompare(A.userName || "");
+
+      case "statusAsc":
+        return (A.status || "").localeCompare(B.status || "");
+      case "statusDesc":
+        return (B.status || "").localeCompare(A.status || "");
+
+      case "dueAsc": return dueA - dueB;
+      case "dueDesc": return dueB - dueA;
+    }
+
+    return 0;
+  });
+}
+
+function renderLoans(){
+  let filtered = applyLoanFilters(allLoans);
+  let sorted = sortLoans(filtered);
+  displayLoans(sorted);
+}
 
 // ================== REFRESH MY LOANS ==================
 async function refreshMyLoans(){

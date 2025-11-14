@@ -125,6 +125,19 @@
   <button id="btnApplyLoanFilter">Áp dụng</button>
   <button id="btnResetLoanFilter">Reset</button>
 </div>
+<select id="loanSort" onchange="renderLoans()">
+  <option value="">-- Sắp xếp --</option>
+  <option value="createdAsc">Ngày tạo ↑</option>
+  <option value="createdDesc">Ngày tạo ↓</option>
+  <option value="equipmentAsc">Tên thiết bị A→Z</option>
+  <option value="equipmentDesc">Tên thiết bị Z→A</option>
+  <option value="userAsc">Người mượn A→Z</option>
+  <option value="userDesc">Người mượn Z→A</option>
+  <option value="statusAsc">Trạng thái A→Z</option>
+  <option value="statusDesc">Trạng thái Z→A</option>
+  <option value="dueAsc">Ngày trả ↑</option>
+  <option value="dueDesc">Ngày trả ↓</option>
+</select>
 
 
     <div id="adminLoans">

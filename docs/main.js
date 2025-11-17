@@ -846,25 +846,18 @@ function exportLoansPDF() {
 }
 
 function sendEmailNotification(loan, type) {
-  const payload = {
-    userEmail: loan.userEmail,
-    userName: loan.userName,
-    equipmentName: loan.equipmentName,
-    quantity: loan.quantity,
-    type: type,
-    adminNote: loan.adminNote || "",
-    adminEmail: "nthanhphuong@agu.edu.vn" // admin nhận thông báo
-  };
+  const url = "https://script.google.com/macros/s/AKfycbwoyTmHHEsaWthmsD-z0OmKJIaQimxXT65PfaTv8z2gmY7UuEkcfy61XQykjw9DFahB-w/exec"; // Thay bằng URL Web App
 
-  fetch("https://script.google.com/macros/s/AKfycbwoyTmHHEsaWthmsD-z0OmKJIaQimxXT65PfaTv8z2gmY7UuEkcfy61XQykjw9DFahB-w/exec", {
+  fetch(url, {
     method: "POST",
-    body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" }
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ loan, type })
   })
   .then(res => res.json())
-  .then(r => console.log("Email sent:", r))
+  .then(res => console.log("Email sent:", res))
   .catch(err => console.error("Email error:", err));
 }
+
 
 
 

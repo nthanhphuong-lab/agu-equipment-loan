@@ -954,30 +954,21 @@ async function enqueueEmail(loan, status) {
       return;
     }
 
-    const toEmail = loan.userEmail || "";  // gửi đến userEmail
-    const userName = loan.userName || "";  // nếu chưa có thì để trống
+    const toEmail = loan.userEmail || "";
+    const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    // Lấy ngày mượn, ngày trả dự kiến, ngày trả thực tế
-    const startStr = loan.startAt ? loan.startAt.toDate().toLocaleString() : "";
-    const dueStr = loan.dueAt ? loan.dueAt.toDate().toLocaleString() : "";
-    const returnedStr = loan.returnedAt ? loan.returnedAt.toDate().toLocaleString() : "";
+    // Format ngày mượn, trả/gia hạn, trả về string dd/mm/yyyy, hh:mm:ss
+    const formatDate = (ts) => ts && ts.toDate ? ts.toDate().toLocaleString("vi-VN") : "";
 
-    // Nội dung email
-    const bodyLines = [
-      `Thiết bị: ${loan.equipmentName || "(Không có)"}`,
-      `Số lượng: ${quantity}`,
-      `Trạng thái: ${statusMap[status] || status}`
-    ];
-
-    if (startStr) bodyLines.push(`Ngày mượn: ${startStr}`);
-    if (status === "returned" && returnedStr) {
-      bodyLines.push(`Ngày trả: ${returnedStr}`);
-    } else if (dueStr) {
-      bodyLines.push(`Ngày trả / gia hạn: ${dueStr}`);
-    }
-
-    if (loan.adminNote) bodyLines.push(`Ghi chú từ Admin: ${loan.adminNote}`);
+    const body = `
+Thiết bị: ${loan.equipmentName || "(Không có)"}
+Số lượng: ${quantity}
+Trạng thái: ${statusMap[status] || status}
+Ngày mượn: ${formatDate(loan.startAt)}
+Ngày trả / gia hạn: ${formatDate(loan.dueAt)}
+Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
+`.trim();
 
     const emailData = {
       loanId: loan.id,
@@ -987,7 +978,7 @@ async function enqueueEmail(loan, status) {
       qty: quantity,
       type: status,
       subject: statusMap[status] || "",
-      body: bodyLines.join("\n"),
+      body,
       createdAt: serverTimestamp()
     };
 
@@ -997,7 +988,6 @@ async function enqueueEmail(loan, status) {
     console.error("Email queue error:", err);
   }
 }
-
 
 
 

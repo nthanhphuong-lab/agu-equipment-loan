@@ -846,42 +846,26 @@ function exportLoansPDF() {
 }
 
 function sendEmailNotification(loan, type) {
-  const subjectMap = {
-    approved: "Yêu cầu mượn đã được DUYỆT",
-    rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
-    returned: "Xác nhận ĐÃ TRẢ thiết bị",
-    extended: "Gia hạn mượn thiết bị"
+  const payload = {
+    userEmail: loan.userEmail,
+    userName: loan.userName,
+    equipmentName: loan.equipmentName,
+    quantity: loan.quantity,
+    type: type,
+    adminNote: loan.adminNote || "",
+    adminEmail: "nthanhphuong@agu.edu.vn" // admin nhận thông báo
   };
 
-  const body = `
-Thiết bị: ${loan.equipmentName}
-Số lượng: ${loan.quantity}
-Trạng thái: ${type}
-Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}  
-`.trim();
-
-  // 1. Gửi tới user
-  fetch("https://formsubmit.co/ajax/nthanhphuong@agu.edu.vn", {
+  fetch("YOUR_GAS_WEB_APP_URL", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: loan.userEmail, // user nhận thông báo
-      subject: subjectMap[type],
-      message: body
-    })
-  });
-
-  // 2. Gửi tới admin (nếu muốn admin cũng nhận)
-  fetch("https://formsubmit.co/ajax/nthanhphuong@agu.edu.vn", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: "nthanhphuong@agu.edu.vn", // admin nhận thông báo
-      subject: `[ADMIN] ${subjectMap[type]}`,
-      message: `Người dùng: ${loan.userName} (${loan.userEmail})\n${body}`
-    })
-  });
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.json())
+  .then(r => console.log("Email sent:", r))
+  .catch(err => console.error("Email error:", err));
 }
+
 
 
 // EOF

@@ -856,7 +856,7 @@ function sendEmailNotification(loan, type) {
     adminEmail: "nthanhphuong@agu.edu.vn" // admin nhận thông báo
   };
 
-  fetch("YOUR_GAS_WEB_APP_URL", {
+  fetch("https://script.google.com/a/macros/agu.edu.vn/s/AKfycbxX57bdcM9YtxgmuwcWU7pW1b0KMymioHu189SKZ1q5144cQrZf-58hkLXYTLUFz0lKLQ/exec", {
     method: "POST",
     body: JSON.stringify(payload),
     headers: { "Content-Type": "application/json" }

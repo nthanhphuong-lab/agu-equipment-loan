@@ -762,25 +762,67 @@ async function refreshStats(){
 document.getElementById("btnExportExcel").onclick = exportLoansExcel;
 document.getElementById("btnExportPDF").onclick = exportLoansPDF;
 
-function exportLoansExcel() {
-  const rows = Object.values(loansDB);
-  let csv = "id,user,email,equipment,qty,start,due,status,note\n";
+// ================== EXPORT EXCEL ==================
+async function exportLoansExcel() {
+    let exportList = [];
 
-  rows.forEach(r => {
-    csv += `${r.id},${r.userName},${r.userEmail},${r.equipmentName},${r.qty},${r.start},${r.due},${r.status},${r.adminNote || ""}\n`;
-  });
+    if (isAdmin) {
+        // Admin dùng allLoansData
+        exportList = allLoansData.map(l => ({
+            id: l.id,
+            ...l.data
+        }));
+    } else {
+        // User: tự tải danh sách của mình
+        const q = query(collection(db, "loans"),
+            where("userEmail", "==", currentUser.email)
+        );
+        const snap = await getDocs(q);
+        snap.forEach(doc => {
+            const d = doc.data();
+            if (!d.deleted) exportList.push({ id: doc.id, ...d });
+        });
+    }
 
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "loans.csv";
-  a.click();
+    if (exportList.length === 0) {
+        alert("Không có dữ liệu để xuất");
+        return;
+    }
+
+    // Format dữ liệu để xuất CSV
+    let csv = "id,user,email,equipment,qty,start,due,status,note,adminNote\n";
+
+    exportList.forEach(r => {
+        csv += [
+            r.id,
+            r.userName || "",
+            r.userEmail || "",
+            r.equipmentName || "",
+            r.quantity || 0,
+            r.startAt?.toDate ? r.startAt.toDate().toLocaleString() : "",
+            r.dueAt?.toDate ? r.dueAt.toDate().toLocaleString() : "",
+            r.status || "",
+            r.note || "",
+            r.adminNote || ""
+        ].join(",") + "\n";
+    });
+
+    // Xuất file CSV
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "loans_export.csv";
+    a.click();
 }
 
+// ================== EXPORT PDF ==================
 function exportLoansPDF() {
-  window.print(); // Cách đơn giản nhất
+    // Cách đơn giản nhất: in toàn bộ danh sách hiện tại ra PDF
+    window.print();
 }
+
 // ================== EMAIL NOTIFICATION ==================
 function sendEmailNotification(loan, type) {
   const subjectMap = {

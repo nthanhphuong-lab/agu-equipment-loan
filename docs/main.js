@@ -858,13 +858,13 @@ async function refreshStats(){
     }).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
   }
 }
+
+
 // ================== EXPORT EXCEL / PDF ==================
 document.getElementById("btnExportExcel").onclick = exportLoansExcel;
 document.getElementById("btnExportPDF").onclick = exportLoansPDF;
 
 // ================== EXPORT EXCEL NÂNG CAO ==================
-document.getElementById("btnExportExcel").onclick = exportLoansExcel;
-
 async function exportLoansExcel() {
     let exportList = [];
 
@@ -906,7 +906,7 @@ async function exportLoansExcel() {
         };
 
         // Tạo header CSV
-        let csv = "ID,Người dùng,Email,Thiết bị,Số lượng,Ngày mượn,Ngày trả,Trạng thái,Ghi chú,AdminNote\n";
+        let csv = "ID,Người dùng,Email,Thiết bị,Số lượng,Ngày mượn,Ngày trả/giá hạn,Trạng thái,Ghi chú,AdminNote\n";
 
         exportList.forEach(r => {
             csv += [
@@ -914,11 +914,11 @@ async function exportLoansExcel() {
                 r.userName || "",
                 r.userEmail || "",
                 r.equipmentName || "",
-                r.quantity || 0,
+                r.quantity || r.qty || 0,
                 formatDate(r.startAt),
                 formatDate(r.dueAt),
                 r.status || "",
-                (r.note || "").replace(/(\r\n|\n|\r)/gm, " "), // loại bỏ xuống dòng
+                (r.note || "").replace(/(\r\n|\n|\r)/gm, " "),
                 (r.adminNote || "").replace(/(\r\n|\n|\r)/gm, " ")
             ].join(",") + "\n";
         });
@@ -935,6 +935,59 @@ async function exportLoansExcel() {
         console.error("Lỗi khi xuất Excel:", err);
         alert("Có lỗi xảy ra khi xuất Excel. Xem console để biết chi tiết.");
     }
+}
+
+// ================== EXPORT PDF ==================
+async function exportLoansPDF() {
+    if (typeof jsPDF === "undefined") {
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+        document.head.appendChild(script);
+        await new Promise(res => script.onload = res);
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Danh sách mượn thiết bị", 20, 20);
+
+    let loansQuery;
+    if (isAdmin) {
+        loansQuery = query(collection(db, "loans"), where("deleted", "==", false));
+    } else {
+        loansQuery = query(
+            collection(db, "loans"),
+            where("userEmail", "==", currentUser.email),
+            where("deleted", "==", false)
+        );
+    }
+
+    const snap = await getDocs(loansQuery);
+    const loans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    if (loans.length === 0) {
+        doc.setFontSize(12);
+        doc.text("Không có dữ liệu.", 20, 30);
+    } else {
+        doc.setFontSize(12);
+        let y = 30;
+        loans.forEach(loan => {
+            const startAt = loan.startAt ? loan.startAt.toDate().toLocaleString() : "(chưa có)";
+            const dueAt = loan.dueAt ? loan.dueAt.toDate().toLocaleString() : "(chưa có)";
+            const returnedAt = loan.returnedAt ? loan.returnedAt.toDate().toLocaleString() : "-";
+
+            const line = `Thiết bị: ${loan.equipmentName || "(Không có)"} | Số lượng: ${loan.quantity || loan.qty || 0} | Trạng thái: ${loan.status} | Ngày mượn: ${startAt} | Ngày trả/gia hạn: ${dueAt} | Trả: ${returnedAt}`;
+            doc.text(line, 20, y);
+            y += 10;
+            if (y > 280) {
+                doc.addPage();
+                y = 20;
+            }
+        });
+    }
+
+    doc.save("Danh_sach_muon_thiet_bi.pdf");
+    alert("✅ Xuất PDF thành công!");
 }
 
 

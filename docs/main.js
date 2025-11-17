@@ -662,7 +662,7 @@ window.approveLoanWithDates = async (id)=>{
     dueAt: Timestamp.fromDate(due)
   });
   // === Gửi email sau khi duyệt ===
-  await sendEmailToQueue(loan, "approved");
+  await enqueueEmail(loan, "approved");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -673,7 +673,7 @@ window.rejectLoan = async (id)=>{
   await updateDoc(loanRef,{status:"rejected", rejectedReason:reason, approvedBy:currentUser.email, approvedAt:serverTimestamp()});
  // === Gửi email bị từ chối ===
  const loanSnap = await getDoc(loanRef);
- await sendEmailToQueue(loan, "rejected");
+ await enqueueEmail(loan, "rejected");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -685,7 +685,7 @@ window.extendLoan = async (id)=>{
   await updateDoc(loanRef,{dueAt: Timestamp.fromDate(newDue)});
   // === Gửi email gia hạn ===
  const loanSnap = await getDoc(loanRef);
- await sendEmailToQueue(loan, "extended");
+ await enqueueEmail(loan, "extended");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -703,7 +703,7 @@ window.returnLoanWithTime = async (id)=>{
   await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
   // === Gửi email xác nhận trả ===
 const loanSnap2 = await getDoc(loanRef);
-await sendEmailToQueue(loan, "returned");
+await enqueueEmail(loan, "returned");
 
   await refreshAllLoans(); await refreshMyLoans();
 };
@@ -845,34 +845,29 @@ function exportLoansPDF() {
     window.print();
 }
 
-// ================== EMAIL QUEUE ==================
-async function sendEmailToQueue(loan, type) {
-  const subjectMap = {
-    approved: "Yêu cầu mượn đã được DUYỆT",
-    rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
-    returned: "Xác nhận ĐÃ TRẢ thiết bị",
-    extended: "Gia hạn mượn thiết bị"
-  };
-
-  const body = `
+async function enqueueEmail(loan, type) {
+  const emailDoc = {
+    loanId: loan.id,
+    toEmail: loan.userEmail,
+    subject: {
+      approved: "Yêu cầu mượn đã được DUYỆT",
+      rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
+      returned: "Xác nhận ĐÃ TRẢ thiết bị",
+      extended: "Gia hạn mượn thiết bị"
+    }[type],
+    body: `
 Thiết bị: ${loan.equipmentName}
 Số lượng: ${loan.qty}
 Trạng thái: ${type}
 Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}  
-`.trim();
+`.trim(),
+    type: type,
+    createdAt: Date.now()
+  };
 
-  try {
-    await addDoc(collection(db, "emailQueue"), {
-      to: loan.userEmail,
-      subject: subjectMap[type],
-      body: body,
-      loanId: loan.id,
-      createdAt: serverTimestamp()
-    });
-    console.log("✅ Email queued for", loan.userEmail);
-  } catch (err) {
-    console.error("❌ Failed to queue email:", err);
-  }
+  // Lưu vào Firestore
+  const docRef = doc(collection(db, "emailQueue"));
+  await setDoc(docRef, emailDoc);
 }
 
 

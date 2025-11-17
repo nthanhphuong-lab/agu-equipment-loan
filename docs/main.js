@@ -845,7 +845,6 @@ function exportLoansPDF() {
     window.print();
 }
 
-// ================== EMAIL NOTIFICATION ==================
 function sendEmailNotification(loan, type) {
   const subjectMap = {
     approved: "Yêu cầu mượn đã được DUYỆT",
@@ -856,20 +855,33 @@ function sendEmailNotification(loan, type) {
 
   const body = `
 Thiết bị: ${loan.equipmentName}
-Số lượng: ${loan.qty}
+Số lượng: ${loan.quantity}
 Trạng thái: ${type}
 Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}  
 `.trim();
 
+  // 1. Gửi tới user
   fetch("https://formsubmit.co/ajax/YOUR_EMAIL@agu.edu.vn", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      email: loan.userEmail,
+      email: loan.userEmail, // user nhận thông báo
       subject: subjectMap[type],
       message: body
     })
   });
+
+  // 2. Gửi tới admin (nếu muốn admin cũng nhận)
+  fetch("https://formsubmit.co/ajax/YOUR_EMAIL@agu.edu.vn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: "nthanhphuong@agu.edu.vn", // admin nhận thông báo
+      subject: `[ADMIN] ${subjectMap[type]}`,
+      message: `Người dùng: ${loan.userName} (${loan.userEmail})\n${body}`
+    })
+  });
 }
+
 
 // EOF

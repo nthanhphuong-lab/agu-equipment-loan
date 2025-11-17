@@ -766,56 +766,60 @@ document.getElementById("btnExportPDF").onclick = exportLoansPDF;
 async function exportLoansExcel() {
     let exportList = [];
 
-    if (isAdmin) {
-        // Admin dùng allLoansData
-        exportList = allLoansData.map(l => ({
-            id: l.id,
-            ...l.data
-        }));
-    } else {
-        // User: tự tải danh sách của mình
-        const q = query(collection(db, "loans"),
-            where("userEmail", "==", currentUser.email)
-        );
-        const snap = await getDocs(q);
+    try {
+        let loansQuery;
+
+        if (isAdmin) {
+            // Admin: lấy tất cả các yêu cầu chưa xóa
+            loansQuery = query(collection(db, "loans"), where("deleted", "==", false));
+        } else {
+            // User: lấy yêu cầu của mình chưa xóa
+            loansQuery = query(collection(db, "loans"),
+                where("userEmail", "==", currentUser.email),
+                where("deleted", "==", false)
+            );
+        }
+
+        const snap = await getDocs(loansQuery);
         snap.forEach(doc => {
             const d = doc.data();
-            if (!d.deleted) exportList.push({ id: doc.id, ...d });
+            exportList.push({ id: doc.id, ...d });
         });
+
+        if (exportList.length === 0) {
+            alert("Không có dữ liệu để xuất");
+            return;
+        }
+
+        let csv = "id,user,email,equipment,qty,start,due,status,note,adminNote\n";
+        exportList.forEach(r => {
+            csv += [
+                r.id,
+                r.userName || "",
+                r.userEmail || "",
+                r.equipmentName || "",
+                r.quantity || 0,
+                r.startAt?.toDate ? r.startAt.toDate().toLocaleString() : "",
+                r.dueAt?.toDate ? r.dueAt.toDate().toLocaleString() : "",
+                r.status || "",
+                r.note || "",
+                r.adminNote || ""
+            ].join(",") + "\n";
+        });
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "loans_export.csv";
+        a.click();
+
+    } catch (err) {
+        console.error("Lỗi khi xuất Excel:", err);
+        alert("Có lỗi xảy ra khi xuất Excel. Xem console để biết chi tiết.");
     }
-
-    if (exportList.length === 0) {
-        alert("Không có dữ liệu để xuất");
-        return;
-    }
-
-    // Format dữ liệu để xuất CSV
-    let csv = "id,user,email,equipment,qty,start,due,status,note,adminNote\n";
-
-    exportList.forEach(r => {
-        csv += [
-            r.id,
-            r.userName || "",
-            r.userEmail || "",
-            r.equipmentName || "",
-            r.quantity || 0,
-            r.startAt?.toDate ? r.startAt.toDate().toLocaleString() : "",
-            r.dueAt?.toDate ? r.dueAt.toDate().toLocaleString() : "",
-            r.status || "",
-            r.note || "",
-            r.adminNote || ""
-        ].join(",") + "\n";
-    });
-
-    // Xuất file CSV
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "loans_export.csv";
-    a.click();
 }
+
 
 // ================== EXPORT PDF ==================
 function exportLoansPDF() {

@@ -663,8 +663,8 @@ window.approveLoanWithDates = async (id)=>{
   });
   // === Gửi email sau khi duyệt ===
   const loanSnap2 = await getDoc(loanRef);
-  const loan = loanSnap2.data(); // ✅ định nghĩa loan
-  await enqueueEmail(loan, "approved");
+  const loan2 = loanSnap2.data(); // ✅ định nghĩa loan
+  await enqueueEmail(loan2, "approved");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -707,8 +707,8 @@ window.returnLoanWithTime = async (id)=>{
   await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
   // === Gửi email xác nhận trả ===
 const loanSnap2 = await getDoc(loanRef);
-const loan = loanSnap2.data(); // ✅ định nghĩa loan
-await enqueueEmail(loan, "returned");
+const loan2 = loanSnap2.data(); // ✅ định nghĩa loan
+await enqueueEmail(loan2, "returned");
 
   await refreshAllLoans(); await refreshMyLoans();
 };

@@ -661,6 +661,8 @@ window.approveLoanWithDates = async (id)=>{
     startAt: Timestamp.fromDate(start),
     dueAt: Timestamp.fromDate(due)
   });
+  // === Gửi email sau khi duyệt ===
+ sendEmailNotification(loan, "approved");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -669,6 +671,9 @@ window.rejectLoan = async (id)=>{
   if (reason === null) return;
   const loanRef = doc(db,"loans",id);
   await updateDoc(loanRef,{status:"rejected", rejectedReason:reason, approvedBy:currentUser.email, approvedAt:serverTimestamp()});
+ // === Gửi email bị từ chối ===
+ const loanSnap = await getDoc(loanRef);
+ sendEmailNotification(loanSnap.data(), "rejected");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -678,6 +683,9 @@ window.extendLoan = async (id)=>{
   const newDue = new Date(newDueEl.value+"T23:59:59");
   const loanRef = doc(db,"loans",id);
   await updateDoc(loanRef,{dueAt: Timestamp.fromDate(newDue)});
+  // === Gửi email gia hạn ===
+ const loanSnap = await getDoc(loanRef);
+ sendEmailNotification(loanSnap.data(), "extended");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -693,6 +701,10 @@ window.returnLoanWithTime = async (id)=>{
   const eq = eqSnap.data();
   await updateDoc(eqRef,{quantity_available: eq.quantity_available + loan.quantity});
   await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
+  // === Gửi email xác nhận trả ===
+const loanSnap2 = await getDoc(loanRef);
+sendEmailNotification(loanSnap2.data(), "returned");
+
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -768,6 +780,32 @@ function exportLoansExcel() {
 
 function exportLoansPDF() {
   window.print(); // Cách đơn giản nhất
+}
+// ================== EMAIL NOTIFICATION ==================
+function sendEmailNotification(loan, type) {
+  const subjectMap = {
+    approved: "Yêu cầu mượn đã được DUYỆT",
+    rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
+    returned: "Xác nhận ĐÃ TRẢ thiết bị",
+    extended: "Gia hạn mượn thiết bị"
+  };
+
+  const body = `
+Thiết bị: ${loan.equipmentName}
+Số lượng: ${loan.qty}
+Trạng thái: ${type}
+Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}  
+`.trim();
+
+  fetch("https://formsubmit.co/ajax/YOUR_EMAIL@agu.edu.vn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: loan.userEmail,
+      subject: subjectMap[type],
+      message: body
+    })
+  });
 }
 
 // EOF

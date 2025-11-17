@@ -709,7 +709,7 @@ window.returnLoanWithTime = async (id)=>{
   await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
   // === Gửi email xác nhận trả ===
   const loanSnap2 = await getDoc(loanRef);
-  const loan = { id: id, ...loanSnap2.data() }; // ✅ định nghĩa loan
+  const loan2 = { id: id, ...loanSnap2.data() }; // ✅ định nghĩa loan
   await enqueueEmail(loan2, "returned");
 
   await refreshAllLoans(); await refreshMyLoans();

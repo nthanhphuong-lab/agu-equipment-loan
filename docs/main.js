@@ -746,5 +746,28 @@ async function refreshStats(){
     }).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
   }
 }
+// ================== EXPORT EXCEL / PDF ==================
+document.getElementById("btnExportExcel").onclick = exportLoansExcel;
+document.getElementById("btnExportPDF").onclick = exportLoansPDF;
+
+function exportLoansExcel() {
+  const rows = Object.values(loansDB);
+  let csv = "id,user,email,equipment,qty,start,due,status,note\n";
+
+  rows.forEach(r => {
+    csv += `${r.id},${r.userName},${r.userEmail},${r.equipmentName},${r.qty},${r.start},${r.due},${r.status},${r.adminNote || ""}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "loans.csv";
+  a.click();
+}
+
+function exportLoansPDF() {
+  window.print(); // Cách đơn giản nhất
+}
 
 // EOF

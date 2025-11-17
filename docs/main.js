@@ -939,6 +939,25 @@ async function exportLoansExcel() {
 
 
 
+// ================== HELPER ==================
+function formatDate(timestamp) {
+  if (!timestamp || !timestamp.toDate) return "(Không có)";
+  const date = timestamp.toDate();
+  const day = String(date.getDate()).padStart(2,'0');
+  const month = String(date.getMonth()+1).padStart(2,'0');
+  const year = date.getFullYear();
+
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2,'0');
+  const seconds = String(date.getSeconds()).padStart(2,'0');
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  hours = String(hours).padStart(2,'0');
+
+  return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
+}
+
 // ================== EMAIL QUEUE ==================
 const statusMap = {
   approved: "Yêu cầu mượn đã được DUYỆT",
@@ -955,30 +974,26 @@ async function enqueueEmail(loan, status) {
     }
 
     const toEmail = loan.userEmail || "";
-    const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    // Format ngày mượn, trả/gia hạn, trả về string dd/mm/yyyy, hh:mm:ss
-    const formatDate = (ts) => ts && ts.toDate ? ts.toDate().toLocaleString("vi-VN") : "";
-
-    const body = `
-Thiết bị: ${loan.equipmentName || "(Không có)"}
-Số lượng: ${quantity}
-Trạng thái: ${statusMap[status] || status}
-Ngày mượn: ${formatDate(loan.startAt)}
-Ngày trả / gia hạn: ${formatDate(loan.dueAt)}
-Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
-`.trim();
+    const bodyLines = [
+      `Thiết bị: ${loan.equipmentName || "(Không có)"}`,
+      `Số lượng: ${quantity}`,
+      `Trạng thái: ${status}`,
+      `Ngày mượn: ${loan.startAt ? formatDate(loan.startAt) : "(Không có)"}`,
+      `Ngày trả / gia hạn: ${loan.dueAt ? formatDate(loan.dueAt) : loan.returnedAt ? formatDate(loan.returnedAt) : "(Không có)"}`,
+      `Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}`
+    ];
 
     const emailData = {
       loanId: loan.id,
       userEmail: toEmail,
-      userName: userName,
+      userName: loan.userName || "",
       equipmentName: loan.equipmentName || "",
       qty: quantity,
       type: status,
       subject: statusMap[status] || "",
-      body,
+      body: bodyLines.join("\n"),
       createdAt: serverTimestamp()
     };
 

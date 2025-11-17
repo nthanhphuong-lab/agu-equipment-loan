@@ -861,7 +861,7 @@ Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
 `.trim();
 
   // 1. Gửi tới user
-  fetch("https://formsubmit.co/ajax/YOUR_EMAIL@agu.edu.vn", {
+  fetch("https://formsubmit.co/ajax/nthanhphuong@agu.edu.vn", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

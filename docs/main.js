@@ -945,24 +945,13 @@ async function enqueueEmail(loan, status) {
       return;
     }
 
-    const toEmail = loan.userEmail || "";  // gửi đến userEmail
-    const userName = loan.userName || "";  // hiện tại chưa có, để trống hoặc default
+    const toEmail = loan.userEmail || "";       // gửi đến userEmail
+    const userName = loan.userName || "";       // hiện tại chưa có, để trống hoặc default
     const quantity = loan.quantity || loan.qty || 0;
 
-    // Chuẩn bị ngày mượn, hạn trả, ngày trả thực tế, ngày gia hạn nếu có
-    const startDateStr = loan.startAt?.toDate ? loan.startAt.toDate().toLocaleDateString() : "";
-    const dueDateStr = loan.dueAt?.toDate ? loan.dueAt.toDate().toLocaleDateString() : "";
-    const returnedDateStr = loan.returnedAt?.toDate ? loan.returnedAt.toDate().toLocaleDateString() : "";
-    const extendedDateStr = loan.dueAt?.toDate ? loan.dueAt.toDate().toLocaleDateString() : "";
-
-    let extraInfo = "";
-    if (status === "approved") {
-      extraInfo = `Ngày mượn: ${startDateStr}\nHạn trả: ${dueDateStr}`;
-    } else if (status === "returned") {
-      extraInfo = `Ngày trả thực tế: ${returnedDateStr}`;
-    } else if (status === "extended") {
-      extraInfo = `Ngày gia hạn mới: ${extendedDateStr}`;
-    }
+    // Lấy ngày mượn và ngày trả/gia hạn
+    const startStr = loan.startAt ? loan.startAt.toDate().toLocaleString() : "";
+    const dueStr = loan.dueAt ? loan.dueAt.toDate().toLocaleString() : "";
 
     const emailData = {
       loanId: loan.id,
@@ -975,9 +964,10 @@ async function enqueueEmail(loan, status) {
       body: `
 Thiết bị: ${loan.equipmentName || "(Không có)"}
 Số lượng: ${quantity}
-Trạng thái: ${status}
+Trạng thái: ${statusMap[status] || status}
+${startStr ? "Ngày mượn: " + startStr : ""}
+${dueStr ? "Ngày trả / gia hạn: " + dueStr : ""}
 Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
-${extraInfo}
 `.trim(),
       createdAt: serverTimestamp()
     };
@@ -988,7 +978,6 @@ ${extraInfo}
     console.error("Email queue error:", err);
   }
 }
-
 
 
 

@@ -851,31 +851,50 @@ function exportLoansPDF() {
     window.print();
 }
 
-async function enqueueEmail(loan, type) {
-  const emailDoc = {
-    loanId: loan.id,
-    toEmail: loan.userEmail,
-    subject: {
-      approved: "Yêu cầu mượn đã được DUYỆT",
-      rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
-      returned: "Xác nhận ĐÃ TRẢ thiết bị",
-      extended: "Gia hạn mượn thiết bị"
-    }[type],
-    body: `
-Thiết bị: ${loan.equipmentName}
-Số lượng: ${loan.qty}
-Trạng thái: ${type}
-Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}  
-`.trim(),
-    type: type,
-    createdAt: Date.now()
-  };
+// ================== EMAIL QUEUE ==================
+const statusMap = {
+  approved: "Yêu cầu mượn đã được DUYỆT",
+  rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
+  returned: "Xác nhận ĐÃ TRẢ thiết bị",
+  extended: "Gia hạn mượn thiết bị"
+};
 
-  // Lưu vào Firestore
-  const docRef = doc(collection(db, "emailQueue"));
-  await setDoc(docRef, emailDoc);
+async function enqueueEmail(loan, status) {
+  try {
+    if (!loan || !loan.id) {
+      console.error("enqueueEmail: loan or loan.id is missing");
+      return;
+    }
+
+    const loanId = loan.id || "";
+    const toEmail = loan.userEmail || "";
+    const subject = statusMap[status] || "";
+    const body = `
+Thiết bị: ${loan.equipmentName || "(Không có)"}
+Số lượng: ${loan.qty || 0}
+Trạng thái: ${status}
+Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
+`.trim();
+
+    const emailData = {
+      loanId,
+      userEmail: toEmail,
+      userName: loan.userName || "",
+      equipmentName: loan.equipmentName || "",
+      qty: loan.qty || 0,
+      type: status,
+      subject,
+      body,
+      createdAt: serverTimestamp()
+    };
+
+    // Lưu vào Firestore collection 'emailQueue' với document ID = loan.id
+    await setDoc(doc(db, "emailQueue", loanId), emailData);
+    console.log(`✅ Email queued for loanId=${loanId}, status=${status}`);
+  } catch (err) {
+    console.error("Email queue error:", err);
+  }
 }
-
 
 
 

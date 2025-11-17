@@ -960,24 +960,35 @@ async function enqueueEmail(loan, status) {
 
     const emailData = {
       loanId: loan.id,
-      userEmail: loan.userEmail || "",
+
+      // luôn lấy đúng email
+      userEmail: loan.userEmail || loan.toEmail || "",
+
+      // luôn lấy tên user
       userName: loan.userName || "",
+
+      // tên thiết bị
       equipmentName: loan.equipmentName || "",
-      qty: loan.qty || 0,
+
+      // số lượng — CHUẨN
+      qty: loan.quantity || loan.qty || 0,
+
       type: status,
       subject: statusMap[status] || "",
+
       body: `
-Thiết bị: ${loan.equipmentName}
-Số lượng: ${loan.qty}
+Thiết bị: ${loan.equipmentName || "(Không có)"}
+Số lượng: ${loan.quantity || loan.qty || 0}
 Trạng thái: ${status}
 Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
       `.trim(),
+
       createdAt: serverTimestamp()
     };
 
     await setDoc(doc(db, "emailQueue", loan.id), emailData);
-    console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
 
+    console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
   } catch (err) {
     console.error("Email queue error:", err);
   }

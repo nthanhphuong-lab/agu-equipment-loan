@@ -662,7 +662,7 @@ window.approveLoanWithDates = async (id)=>{
     dueAt: Timestamp.fromDate(due)
   });
   // === Gửi email sau khi duyệt ===
- sendEmailNotification(loan, "approved");
+  await sendEmailToQueue(loan, "approved");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -673,7 +673,7 @@ window.rejectLoan = async (id)=>{
   await updateDoc(loanRef,{status:"rejected", rejectedReason:reason, approvedBy:currentUser.email, approvedAt:serverTimestamp()});
  // === Gửi email bị từ chối ===
  const loanSnap = await getDoc(loanRef);
- sendEmailNotification(loanSnap.data(), "rejected");
+ await sendEmailToQueue(loan, "rejected");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -685,7 +685,7 @@ window.extendLoan = async (id)=>{
   await updateDoc(loanRef,{dueAt: Timestamp.fromDate(newDue)});
   // === Gửi email gia hạn ===
  const loanSnap = await getDoc(loanRef);
- sendEmailNotification(loanSnap.data(), "extended");
+ await sendEmailToQueue(loan, "extended");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -703,7 +703,7 @@ window.returnLoanWithTime = async (id)=>{
   await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
   // === Gửi email xác nhận trả ===
 const loanSnap2 = await getDoc(loanRef);
-sendEmailNotification(loanSnap2.data(), "returned");
+await sendEmailToQueue(loan, "returned");
 
   await refreshAllLoans(); await refreshMyLoans();
 };
@@ -845,18 +845,36 @@ function exportLoansPDF() {
     window.print();
 }
 
-function sendEmailNotification(loan, type) {
-  const url = "https://script.google.com/macros/s/AKfycbwoyTmHHEsaWthmsD-z0OmKJIaQimxXT65PfaTv8z2gmY7UuEkcfy61XQykjw9DFahB-w/exec"; // Thay bằng URL Web App
+// ================== EMAIL QUEUE ==================
+async function sendEmailToQueue(loan, type) {
+  const subjectMap = {
+    approved: "Yêu cầu mượn đã được DUYỆT",
+    rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
+    returned: "Xác nhận ĐÃ TRẢ thiết bị",
+    extended: "Gia hạn mượn thiết bị"
+  };
 
-  fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ loan, type })
-  })
-  .then(res => res.json())
-  .then(res => console.log("Email sent:", res))
-  .catch(err => console.error("Email error:", err));
+  const body = `
+Thiết bị: ${loan.equipmentName}
+Số lượng: ${loan.qty}
+Trạng thái: ${type}
+Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}  
+`.trim();
+
+  try {
+    await addDoc(collection(db, "emailQueue"), {
+      to: loan.userEmail,
+      subject: subjectMap[type],
+      body: body,
+      loanId: loan.id,
+      createdAt: serverTimestamp()
+    });
+    console.log("✅ Email queued for", loan.userEmail);
+  } catch (err) {
+    console.error("❌ Failed to queue email:", err);
+  }
 }
+
 
 
 

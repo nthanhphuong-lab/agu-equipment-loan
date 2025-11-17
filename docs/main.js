@@ -662,8 +662,8 @@ window.approveLoanWithDates = async (id)=>{
     dueAt: Timestamp.fromDate(due)
   });
   // === Gửi email sau khi duyệt ===
-  const loanSnap = await getDoc(loanRef);
-  const loan = loanSnap.data(); // ✅ định nghĩa loan
+  const loanSnap2 = await getDoc(loanRef);
+  const loan = loanSnap2.data(); // ✅ định nghĩa loan
   await enqueueEmail(loan, "approved");
   await refreshAllLoans(); await refreshMyLoans();
 };

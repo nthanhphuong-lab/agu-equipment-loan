@@ -762,19 +762,21 @@ async function refreshStats(){
 document.getElementById("btnExportExcel").onclick = exportLoansExcel;
 document.getElementById("btnExportPDF").onclick = exportLoansPDF;
 
-// ================== EXPORT EXCEL ==================
+// ================== EXPORT EXCEL NÂNG CAO ==================
+document.getElementById("btnExportExcel").onclick = exportLoansExcel;
+
 async function exportLoansExcel() {
     let exportList = [];
 
     try {
         let loansQuery;
 
+        // Lấy dữ liệu từ Firebase
         if (isAdmin) {
-            // Admin: lấy tất cả các yêu cầu chưa xóa
             loansQuery = query(collection(db, "loans"), where("deleted", "==", false));
         } else {
-            // User: lấy yêu cầu của mình chưa xóa
-            loansQuery = query(collection(db, "loans"),
+            loansQuery = query(
+                collection(db, "loans"),
                 where("userEmail", "==", currentUser.email),
                 where("deleted", "==", false)
             );
@@ -791,7 +793,21 @@ async function exportLoansExcel() {
             return;
         }
 
-        let csv = "id,user,email,equipment,qty,start,due,status,note,adminNote\n";
+        // Hàm format ngày giờ
+        const formatDate = dt => {
+            if (!dt?.toDate) return "";
+            const date = dt.toDate();
+            const dd = String(date.getDate()).padStart(2, "0");
+            const mm = String(date.getMonth() + 1).padStart(2, "0");
+            const yyyy = date.getFullYear();
+            const hh = String(date.getHours()).padStart(2, "0");
+            const min = String(date.getMinutes()).padStart(2, "0");
+            return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+        };
+
+        // Tạo header CSV
+        let csv = "ID,Người dùng,Email,Thiết bị,Số lượng,Ngày mượn,Ngày trả,Trạng thái,Ghi chú,AdminNote\n";
+
         exportList.forEach(r => {
             csv += [
                 r.id,
@@ -799,15 +815,16 @@ async function exportLoansExcel() {
                 r.userEmail || "",
                 r.equipmentName || "",
                 r.quantity || 0,
-                r.startAt?.toDate ? r.startAt.toDate().toLocaleString() : "",
-                r.dueAt?.toDate ? r.dueAt.toDate().toLocaleString() : "",
+                formatDate(r.startAt),
+                formatDate(r.dueAt),
                 r.status || "",
-                r.note || "",
-                r.adminNote || ""
+                (r.note || "").replace(/(\r\n|\n|\r)/gm, " "), // loại bỏ xuống dòng
+                (r.adminNote || "").replace(/(\r\n|\n|\r)/gm, " ")
             ].join(",") + "\n";
         });
 
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        // Thêm BOM UTF-8 để Excel đọc tiếng Việt
+        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -819,6 +836,7 @@ async function exportLoansExcel() {
         alert("Có lỗi xảy ra khi xuất Excel. Xem console để biết chi tiết.");
     }
 }
+
 
 
 // ================== EXPORT PDF ==================

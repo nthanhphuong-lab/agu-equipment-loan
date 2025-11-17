@@ -662,6 +662,8 @@ window.approveLoanWithDates = async (id)=>{
     dueAt: Timestamp.fromDate(due)
   });
   // === Gửi email sau khi duyệt ===
+  const loanSnap = await getDoc(loanRef);
+  const loan = loanSnap.data(); // ✅ định nghĩa loan
   await enqueueEmail(loan, "approved");
   await refreshAllLoans(); await refreshMyLoans();
 };
@@ -672,8 +674,9 @@ window.rejectLoan = async (id)=>{
   const loanRef = doc(db,"loans",id);
   await updateDoc(loanRef,{status:"rejected", rejectedReason:reason, approvedBy:currentUser.email, approvedAt:serverTimestamp()});
  // === Gửi email bị từ chối ===
- const loanSnap = await getDoc(loanRef);
- await enqueueEmail(loan, "rejected");
+  const loanSnap = await getDoc(loanRef);
+  const loan = loanSnap.data(); // ✅ định nghĩa loan
+  await enqueueEmail(loan, "rejected");
   await refreshAllLoans(); await refreshMyLoans();
 };
 
@@ -685,6 +688,7 @@ window.extendLoan = async (id)=>{
   await updateDoc(loanRef,{dueAt: Timestamp.fromDate(newDue)});
   // === Gửi email gia hạn ===
  const loanSnap = await getDoc(loanRef);
+ const loan = loanSnap.data(); // ✅ định nghĩa loan
  await enqueueEmail(loan, "extended");
   await refreshAllLoans(); await refreshMyLoans();
 };
@@ -703,6 +707,7 @@ window.returnLoanWithTime = async (id)=>{
   await updateDoc(loanRef,{returned:true, returnedAt: Timestamp.fromDate(retDate)});
   // === Gửi email xác nhận trả ===
 const loanSnap2 = await getDoc(loanRef);
+const loan = loanSnap2.data(); // ✅ định nghĩa loan
 await enqueueEmail(loan, "returned");
 
   await refreshAllLoans(); await refreshMyLoans();

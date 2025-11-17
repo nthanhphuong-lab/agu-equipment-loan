@@ -950,7 +950,6 @@ const statusMap = {
   returned: "Xác nhận ĐÃ TRẢ thiết bị",
   extended: "Gia hạn mượn thiết bị"
 };
-
 async function enqueueEmail(loan, status) {
   try {
     if (!loan || !loan.id) {
@@ -958,41 +957,35 @@ async function enqueueEmail(loan, status) {
       return;
     }
 
+    const toEmail = loan.userEmail || "";  // gửi đến userEmail
+    const userName = loan.userName || "";  // hiện tại chưa có, để trống hoặc default
+
+    const quantity = loan.quantity || loan.qty || 0;
+
     const emailData = {
       loanId: loan.id,
-
-      // luôn lấy đúng email
-      userEmail: loan.userEmail || loan.toEmail || "",
-
-      // luôn lấy tên user
-      userName: loan.userName || "",
-
-      // tên thiết bị
+      userEmail: toEmail,    // dùng làm toEmail
+      userName: userName,
       equipmentName: loan.equipmentName || "",
-
-      // số lượng — CHUẨN
-      qty: loan.quantity || loan.qty || 0,
-
+      qty: quantity,
       type: status,
       subject: statusMap[status] || "",
-
       body: `
 Thiết bị: ${loan.equipmentName || "(Không có)"}
-Số lượng: ${loan.quantity || loan.qty || 0}
+Số lượng: ${quantity}
 Trạng thái: ${status}
 Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
-      `.trim(),
-
+`.trim(),
       createdAt: serverTimestamp()
     };
 
     await setDoc(doc(db, "emailQueue", loan.id), emailData);
-
     console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
   } catch (err) {
     console.error("Email queue error:", err);
   }
 }
+
 
 
 

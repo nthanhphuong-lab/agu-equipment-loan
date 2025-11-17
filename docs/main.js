@@ -937,59 +937,82 @@ async function exportLoansExcel() {
     }
 }
 
-// ================== EXPORT PDF ==================
-async function exportLoansPDF() {
-    if (typeof jsPDF === "undefined") {
+// ================== LOAD JSPDF MỘT LẦN KHI TRANG LOAD ==================
+let jsPDFLoaded = false;
+let jsPDFInstance = null;
+
+function loadJsPDF() {
+    return new Promise((resolve, reject) => {
+        if (jsPDFLoaded) {
+            resolve(jsPDFInstance);
+            return;
+        }
+
         const script = document.createElement("script");
         script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+        script.onload = () => {
+            jsPDFLoaded = true;
+            jsPDFInstance = window.jspdf.jsPDF;
+            resolve(jsPDFInstance);
+        };
+        script.onerror = reject;
         document.head.appendChild(script);
-        await new Promise(res => script.onload = res);
-    }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Danh sách mượn thiết bị", 20, 20);
-
-    let loansQuery;
-    if (isAdmin) {
-        loansQuery = query(collection(db, "loans"), where("deleted", "==", false));
-    } else {
-        loansQuery = query(
-            collection(db, "loans"),
-            where("userEmail", "==", currentUser.email),
-            where("deleted", "==", false)
-        );
-    }
-
-    const snap = await getDocs(loansQuery);
-    const loans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    if (loans.length === 0) {
-        doc.setFontSize(12);
-        doc.text("Không có dữ liệu.", 20, 30);
-    } else {
-        doc.setFontSize(12);
-        let y = 30;
-        loans.forEach(loan => {
-            const startAt = loan.startAt ? loan.startAt.toDate().toLocaleString() : "(chưa có)";
-            const dueAt = loan.dueAt ? loan.dueAt.toDate().toLocaleString() : "(chưa có)";
-            const returnedAt = loan.returnedAt ? loan.returnedAt.toDate().toLocaleString() : "-";
-
-            const line = `Thiết bị: ${loan.equipmentName || "(Không có)"} | Số lượng: ${loan.quantity || loan.qty || 0} | Trạng thái: ${loan.status} | Ngày mượn: ${startAt} | Ngày trả/gia hạn: ${dueAt} | Trả: ${returnedAt}`;
-            doc.text(line, 20, y);
-            y += 10;
-            if (y > 280) {
-                doc.addPage();
-                y = 20;
-            }
-        });
-    }
-
-    doc.save("Danh_sach_muon_thiet_bi.pdf");
-    alert("✅ Xuất PDF thành công!");
+    });
 }
 
+// ================== EXPORT PDF ==================
+async function exportLoansPDF() {
+    try {
+        const jsPDF = await loadJsPDF();  // đảm bảo jsPDF đã load
+        const doc = new jsPDF();
+        doc.setFontSize(16);
+        doc.text("Danh sách mượn thiết bị", 20, 20);
+
+        let loansQuery;
+        if (isAdmin) {
+            loansQuery = query(collection(db, "loans"), where("deleted", "==", false));
+        } else {
+            loansQuery = query(
+                collection(db, "loans"),
+                where("userEmail", "==", currentUser.email),
+                where("deleted", "==", false)
+            );
+        }
+
+        const snap = await getDocs(loansQuery);
+        const loans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (loans.length === 0) {
+            doc.setFontSize(12);
+            doc.text("Không có dữ liệu.", 20, 30);
+        } else {
+            doc.setFontSize(12);
+            let y = 30;
+            loans.forEach(loan => {
+                const startAt = loan.startAt ? loan.startAt.toDate().toLocaleString() : "(chưa có)";
+                const dueAt = loan.dueAt ? loan.dueAt.toDate().toLocaleString() : "(chưa có)";
+                const returnedAt = loan.returnedAt ? loan.returnedAt.toDate().toLocaleString() : "-";
+
+                const line = `Thiết bị: ${loan.equipmentName || "(Không có)"} | Số lượng: ${loan.quantity || loan.qty || 0} | Trạng thái: ${loan.status} | Ngày mượn: ${startAt} | Ngày trả/gia hạn: ${dueAt} | Trả: ${returnedAt}`;
+                doc.text(line, 20, y);
+                y += 10;
+                if (y > 280) {
+                    doc.addPage();
+                    y = 20;
+                }
+            });
+        }
+
+        doc.save("Danh_sach_muon_thiet_bi.pdf");
+        alert("✅ Xuất PDF thành công!");
+    } catch (err) {
+        console.error("Lỗi xuất PDF:", err);
+        alert("Có lỗi xảy ra khi xuất PDF. Xem console để biết chi tiết.");
+    }
+}
+
+// ================== GẮN NÚT ==================
+document.getElementById("btnExportPDF").onclick = exportLoansPDF;
 
 
 // ================== HELPER ==================

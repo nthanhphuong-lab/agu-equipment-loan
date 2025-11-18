@@ -647,28 +647,20 @@ window.approveLoanWithDates = async (id) => {
   const loanSnap = await getDoc(loanRef);
   if (!loanSnap.exists()) return;
   const loan = loanSnap.data();
+
   if (loan.status !== "pending") return alert("Yêu cầu đã xử lý.");
 
-  const eqRef = doc(db, "equipment", loan.equipmentId);
-  const eqSnap = await getDoc(eqRef);
-  const eq = eqSnap.data();
-
-  if (eq.quantity_available < loan.quantity) {
-    alert("Không đủ thiết bị.");
-    return;
-  }
-
-  // Ngày đề xuất của user
+  // Ngày đề xuất từ user
   const proposedStart = loan.startAt?.toDate() || new Date();
-  const proposedDue = loan.dueAt?.toDate() || new Date();
+  const proposedDue = loan.dueAt?.toDate() || proposedStart;
 
-  // Ngày admin chọn (có thể null)
-  const adminStart = startEl?.value ? new Date(startEl.value + "T00:00:00") : null;
-  const adminDue = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : null;
+  // Ngày admin chọn
+  let adminStart = startEl?.value ? new Date(startEl.value + "T00:00:00") : null;
+  let adminDue = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : null;
 
   // Xác định ngày thực tế
-  const start = adminStart || proposedStart;
-  const due = adminDue || proposedDue;
+  let start = adminStart || proposedStart;
+  let due = adminDue || proposedDue;
 
   // Kiểm tra hợp lệ
   if (due < proposedStart) {
@@ -677,11 +669,16 @@ window.approveLoanWithDates = async (id) => {
   }
 
   // Trừ số lượng thiết bị
-  await updateDoc(eqRef, {
-    quantity_available: eq.quantity_available - loan.quantity
-  });
+  const eqRef = doc(db, "equipment", loan.equipmentId);
+  const eqSnap = await getDoc(eqRef);
+  const eq = eqSnap.data();
+  if (eq.quantity_available < loan.quantity) {
+    alert("Không đủ thiết bị.");
+    return;
+  }
+  await updateDoc(eqRef, { quantity_available: eq.quantity_available - loan.quantity });
 
-  // Cập nhật loan
+  // Cập nhật loan với ngày thực tế
   await updateDoc(loanRef, {
     status: "approved",
     approvedBy: currentUser.email,
@@ -699,9 +696,7 @@ window.approveLoanWithDates = async (id) => {
     equipmentName: eq.name,
     qty: loan.quantity,
     userEmail: loan.userEmail,
-    userName: loan.userName,
-    proposedStartAt: proposedStart,
-    proposedDueAt: proposedDue
+    userName: loan.userName
   };
 
   await enqueueEmail(loanFixed, "approved");

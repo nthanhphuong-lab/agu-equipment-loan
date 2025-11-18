@@ -1049,114 +1049,97 @@ function formatDate(timestamp) {
   return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
 }
 
-// ================== EMAIL QUEUE ==================
-const statusMap = {
-  approved: "Yêu cầu mượn đã được DUYỆT",
-  rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
-  returned: "Xác nhận ĐÃ TRẢ thiết bị",
-  extended: "Gia hạn mượn thiết bị"
-};
-
-function formatTimestamp(ts) {
-  if (!ts?.toDate) return "";
-  const d = ts.toDate();
-  return d.toISOString(); // chuẩn cho Apps Script
+// ================== HELPER ==================
+function formatDate(timestamp) {
+  if (!timestamp || !timestamp.toDate) return "(Không có)";
+  const date = timestamp.toDate();
+  const day = String(date.getDate()).padStart(2,'0');
+  const month = String(date.getMonth()+1).padStart(2,'0');
+  const year = date.getFullYear();
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2,'0');
+  const seconds = String(date.getSeconds()).padStart(2,'0');
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  hours = String(hours).padStart(2,'0');
+  return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
 }
 
+// ================== STATUS MAP ==================
+const statusMap = {
+  approved: { text: "Yêu cầu mượn đã được DUYỆT", color: "green" },
+  rejected: { text: "Yêu cầu mượn đã bị TỪ CHỐI", color: "red" },
+  returned: { text: "Xác nhận ĐÃ TRẢ thiết bị", color: "blue" },
+  extended: { text: "Gia hạn mượn thiết bị", color: "orange" }
+};
+
+// ================== ENQUEUE EMAIL ==================
 async function enqueueEmail(loan, status) {
   try {
+    if (!loan || !loan.id) {
+      console.error("enqueueEmail: loan or loan.id is missing");
+      return;
+    }
+
     const toEmail = loan.userEmail || "";
     const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    // ===== Lấy thời gian (string để AppScript đọc được) =====
-    const startAtRaw = formatTimestamp(loan.startAt);
-    const dueAtRaw = formatTimestamp(loan.dueAt);
-    const returnedAtRaw = formatTimestamp(loan.returnedAt);
+    // Nội dung text (dùng cho fallback)
+    let bodyText = `
+Thiết bị: ${loan.equipmentName || "(Không có)"}
+Số lượng: ${quantity}
+Trạng thái: ${statusMap[status]?.text || status}
+Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
+`.trim();
 
-    // ===== Nội dung HTML đẹp =====
-    const bodyHTML = `
-      <div style="font-family: Arial; padding: 16px; line-height: 1.5; font-size: 14px">
-        <h2 style="color:#1976d2;">Thông Báo Mượn / Trả Thiết Bị</h2>
+    if (status === "approved") {
+      bodyText += `\nNgày mượn: ${formatDate(loan.startAt)}\nNgày trả / gia hạn: ${formatDate(loan.dueAt)}`;
+    } else if (status === "extended") {
+      bodyText += `\nNgày mượn: ${formatDate(loan.startAt)}\nNgày gia hạn: ${formatDate(loan.dueAt)}`;
+    } else if (status === "returned") {
+      bodyText += `\nNgày mượn: ${formatDate(loan.startAt)}\nNgày trả: ${formatDate(loan.returnedAt)}`;
+    }
 
-        <p><b>Thiết bị:</b> ${loan.equipmentName || "(Không có)"}</p>
-        <p><b>Số lượng:</b> ${quantity}</p>
-        <p><b>Trạng thái:</b> 
-          <span style="color:${
-            status === "approved"
-              ? "green"
-              : status === "rejected"
-              ? "red"
-              : status === "extended"
-              ? "orange"
-              : "blue"
-          };">
-            ${statusMap[status]}
-          </span>
-        </p>
+    // Nội dung HTML
+    const statusInfo = statusMap[status] || { text: status, color: "black" };
+    let bodyHTML = `
+<h2>Thông Báo Mượn / Trả Thiết Bị</h2>
+<p><strong>Thiết bị:</strong> ${loan.equipmentName || "(Không có)"}</p>
+<p><strong>Số lượng:</strong> ${quantity}</p>
+<p><strong>Trạng thái:</strong> <span style="color:${statusInfo.color}">${statusInfo.text}</span></p>
+${loan.startAt ? `<p><strong>Ngày mượn:</strong> ${formatDate(loan.startAt)}</p>` : ""}
+${loan.dueAt && (status === "approved" || status === "extended") ? `<p><strong>Ngày trả / gia hạn:</strong> ${formatDate(loan.dueAt)}</p>` : ""}
+${loan.returnedAt && status === "returned" ? `<p><strong>Ngày trả:</strong> ${formatDate(loan.returnedAt)}</p>` : ""}
+<p><strong>Ghi chú từ Admin:</strong> ${loan.adminNote || "(Không có)"}</p>
+<hr>
+<p style="font-size:12px;color:gray;">Email được gửi tự động từ hệ thống Quản Lý Thiết Bị – Không trả lời email này.</p>
+`;
 
-        ${
-          startAtRaw
-            ? `<p><b>Ngày mượn:</b> ${new Date(startAtRaw).toLocaleString()}</p>`
-            : ""
-        }
-        ${
-          dueAtRaw && status === "approved"
-            ? `<p><b>Ngày trả:</b> ${new Date(dueAtRaw).toLocaleString()}</p>`
-            : ""
-        }
-        ${
-          dueAtRaw && status === "extended"
-            ? `<p><b>Ngày gia hạn:</b> ${new Date(dueAtRaw).toLocaleString()}</p>`
-            : ""
-        }
-        ${
-          returnedAtRaw && status === "returned"
-            ? `<p><b>Ngày trả:</b> ${new Date(returnedAtRaw).toLocaleString()}</p>`
-            : ""
-        }
-
-        ${
-          loan.adminNote
-            ? `<p><b>Ghi chú từ Admin:</b> ${loan.adminNote}</p>`
-            : ""
-        }
-
-        <br>
-        <p style="color:#555;font-size:12px;">
-          Email được gửi tự động từ hệ thống Quản Lý Thiết Bị – Vui lòng không phản hồi email này.
-        </p>
-      </div>
-    `;
-
-    // ====== Dữ liệu lưu vào Firestore ======
+    // Lưu vào Firestore
     const emailData = {
       loanId: loan.id,
       userEmail: toEmail,
-      userName,
+      userName: userName,
       equipmentName: loan.equipmentName || "",
       qty: quantity,
       type: status,
-      subject: statusMap[status] || "",
-      bodyHTML: bodyHTML,
+      subject: statusInfo.text,
+      body: bodyText,       // fallback text
+      htmlBody: bodyHTML,   // HTML đẹp
+      startAt: loan.startAt || null,
+      dueAt: loan.dueAt || null,
+      returnedAt: loan.returnedAt || null,
       adminNote: loan.adminNote || "",
-
-      // thời gian convert sang string để AppScript đọc được
-      startAt: startAtRaw || "",
-      dueAt: dueAtRaw || "",
-      returnedAt: returnedAtRaw || "",
-
       createdAt: serverTimestamp()
     };
 
     await setDoc(doc(db, "emailQueue", loan.id), emailData);
-
-    console.log(`📨 Email queued → ${status} | loanId=${loan.id}`);
+    console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
   } catch (err) {
-    console.error("❌ enqueueEmail error:", err);
+    console.error("Email queue error:", err);
   }
 }
-
 
 
 // EOF

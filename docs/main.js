@@ -1060,64 +1060,100 @@ const statusMap = {
 function formatTimestamp(ts) {
   if (!ts?.toDate) return "";
   const d = ts.toDate();
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  const sec = String(d.getSeconds()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy}, ${hh}:${min}:${sec}`;
+  return d.toISOString(); // chuẩn cho Apps Script
 }
 
 async function enqueueEmail(loan, status) {
   try {
-    if (!loan || !loan.id) {
-      console.error("enqueueEmail: loan or loan.id is missing");
-      return;
-    }
-
-    const toEmail = loan.userEmail || "";  // gửi đến userEmail
-    const userName = loan.userName || "";  // nếu không có, để trống
+    const toEmail = loan.userEmail || "";
+    const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    // Lấy thông tin thời gian
-    const startAt = formatTimestamp(loan.startAt);
-    const dueAt = formatTimestamp(loan.dueAt);
-    const returnedAt = formatTimestamp(loan.returnedAt);
+    // ===== Lấy thời gian (string để AppScript đọc được) =====
+    const startAtRaw = formatTimestamp(loan.startAt);
+    const dueAtRaw = formatTimestamp(loan.dueAt);
+    const returnedAtRaw = formatTimestamp(loan.returnedAt);
 
-    // Tạo nội dung email
-    let body = `
-Thiết bị: ${loan.equipmentName || "(Không có)"}
-Số lượng: ${quantity}
-Trạng thái: ${status}
-Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
-`.trim();
+    // ===== Nội dung HTML đẹp =====
+    const bodyHTML = `
+      <div style="font-family: Arial; padding: 16px; line-height: 1.5; font-size: 14px">
+        <h2 style="color:#1976d2;">Thông Báo Mượn / Trả Thiết Bị</h2>
 
-    if (status === "approved") {
-      body += `\nNgày mượn: ${startAt}\nNgày trả / gia hạn: ${dueAt}`;
-    } else if (status === "extended") {
-      body += `\nNgày mượn: ${startAt}\nNgày gia hạn: ${dueAt}`;
-    } else if (status === "returned") {
-      body += `\nNgày mượn: ${startAt}\nNgày trả: ${returnedAt}`;
-    }
+        <p><b>Thiết bị:</b> ${loan.equipmentName || "(Không có)"}</p>
+        <p><b>Số lượng:</b> ${quantity}</p>
+        <p><b>Trạng thái:</b> 
+          <span style="color:${
+            status === "approved"
+              ? "green"
+              : status === "rejected"
+              ? "red"
+              : status === "extended"
+              ? "orange"
+              : "blue"
+          };">
+            ${statusMap[status]}
+          </span>
+        </p>
 
+        ${
+          startAtRaw
+            ? `<p><b>Ngày mượn:</b> ${new Date(startAtRaw).toLocaleString()}</p>`
+            : ""
+        }
+        ${
+          dueAtRaw && status === "approved"
+            ? `<p><b>Ngày trả:</b> ${new Date(dueAtRaw).toLocaleString()}</p>`
+            : ""
+        }
+        ${
+          dueAtRaw && status === "extended"
+            ? `<p><b>Ngày gia hạn:</b> ${new Date(dueAtRaw).toLocaleString()}</p>`
+            : ""
+        }
+        ${
+          returnedAtRaw && status === "returned"
+            ? `<p><b>Ngày trả:</b> ${new Date(returnedAtRaw).toLocaleString()}</p>`
+            : ""
+        }
+
+        ${
+          loan.adminNote
+            ? `<p><b>Ghi chú từ Admin:</b> ${loan.adminNote}</p>`
+            : ""
+        }
+
+        <br>
+        <p style="color:#555;font-size:12px;">
+          Email được gửi tự động từ hệ thống Quản Lý Thiết Bị – Vui lòng không phản hồi email này.
+        </p>
+      </div>
+    `;
+
+    // ====== Dữ liệu lưu vào Firestore ======
     const emailData = {
       loanId: loan.id,
       userEmail: toEmail,
-      userName: userName,
+      userName,
       equipmentName: loan.equipmentName || "",
       qty: quantity,
       type: status,
       subject: statusMap[status] || "",
-      body,
+      bodyHTML: bodyHTML,
+      adminNote: loan.adminNote || "",
+
+      // thời gian convert sang string để AppScript đọc được
+      startAt: startAtRaw || "",
+      dueAt: dueAtRaw || "",
+      returnedAt: returnedAtRaw || "",
+
       createdAt: serverTimestamp()
     };
 
-    // Lưu vào Firestore collection 'emailQueue' với document ID = loan.id
     await setDoc(doc(db, "emailQueue", loan.id), emailData);
-    console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
+
+    console.log(`📨 Email queued → ${status} | loanId=${loan.id}`);
   } catch (err) {
-    console.error("Email queue error:", err);
+    console.error("❌ enqueueEmail error:", err);
   }
 }
 

@@ -1065,12 +1065,28 @@ function formatDate(timestamp) {
   return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
 }
 
+// ================== HELPER ==================
+function formatDate(timestamp) {
+  if (!timestamp || !timestamp.toDate) return "(Không có)";
+  const date = timestamp.toDate();
+  const day = String(date.getDate()).padStart(2,'0');
+  const month = String(date.getMonth()+1).padStart(2,'0');
+  const year = date.getFullYear();
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2,'0');
+  const seconds = String(date.getSeconds()).padStart(2,'0');
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  hours = String(hours).padStart(2,'0');
+  return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
+}
+
 // ================== STATUS MAP ==================
 const statusMap = {
-  approved: { text: "Yêu cầu mượn đã được DUYỆT", color: "green" },
-  rejected: { text: "Yêu cầu mượn đã bị TỪ CHỐI", color: "red" },
-  returned: { text: "Xác nhận ĐÃ TRẢ thiết bị", color: "blue" },
-  extended: { text: "Gia hạn mượn thiết bị", color: "orange" }
+  approved: "Đã duyệt",
+  rejected: "Đã từ chối",
+  returned: "Đã trả",
+  extended: "Gia hạn"
 };
 
 // ================== ENQUEUE EMAIL ==================
@@ -1085,11 +1101,11 @@ async function enqueueEmail(loan, status) {
     const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    // Nội dung text (dùng cho fallback)
+    // Tạo body text đơn giản
     let bodyText = `
 Thiết bị: ${loan.equipmentName || "(Không có)"}
 Số lượng: ${quantity}
-Trạng thái: ${statusMap[status]?.text || status}
+Trạng thái: ${statusMap[status] || status}
 Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
 `.trim();
 
@@ -1101,32 +1117,16 @@ Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
       bodyText += `\nNgày mượn: ${formatDate(loan.startAt)}\nNgày trả: ${formatDate(loan.returnedAt)}`;
     }
 
-    // Nội dung HTML
-    const statusInfo = statusMap[status] || { text: status, color: "black" };
-    let bodyHTML = `
-<h2>Thông Báo Mượn / Trả Thiết Bị</h2>
-<p><strong>Thiết bị:</strong> ${loan.equipmentName || "(Không có)"}</p>
-<p><strong>Số lượng:</strong> ${quantity}</p>
-<p><strong>Trạng thái:</strong> <span style="color:${statusInfo.color}">${statusInfo.text}</span></p>
-${loan.startAt ? `<p><strong>Ngày mượn:</strong> ${formatDate(loan.startAt)}</p>` : ""}
-${loan.dueAt && (status === "approved" || status === "extended") ? `<p><strong>Ngày trả / gia hạn:</strong> ${formatDate(loan.dueAt)}</p>` : ""}
-${loan.returnedAt && status === "returned" ? `<p><strong>Ngày trả:</strong> ${formatDate(loan.returnedAt)}</p>` : ""}
-<p><strong>Ghi chú từ Admin:</strong> ${loan.adminNote || "(Không có)"}</p>
-<hr>
-<p style="font-size:12px;color:gray;">Email được gửi tự động từ hệ thống Quản Lý Thiết Bị – Không trả lời email này.</p>
-`;
-
     // Lưu vào Firestore
     const emailData = {
       loanId: loan.id,
       userEmail: toEmail,
-      userName: userName,
+      userName,
       equipmentName: loan.equipmentName || "",
       qty: quantity,
       type: status,
-      subject: statusInfo.text,
-      body: bodyText,       // fallback text
-      htmlBody: bodyHTML,   // HTML đẹp
+      subject: statusMap[status] || "",
+      body: bodyText,       // chỉ text, không HTML
       startAt: loan.startAt || null,
       dueAt: loan.dueAt || null,
       returnedAt: loan.returnedAt || null,

@@ -359,8 +359,7 @@ function renderLoanCard(id, d, adminView) {
     if (d.status === "pending") {
       adminControls += `<div style="margin-top:6px">
         <div><em>Người mượn đề xuất:</em> ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>
-        <label>Bắt đầu: <input type="date" id="ap_start_${id}"></label>
-        <label>Hạn trả: <input type="date" id="ap_due_${id}"></label>
+       
         <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
         <button onclick="rejectLoan('${id}')">Từ chối</button>
         <button onclick="deleteLoan('${id}')">Xóa</button>

@@ -640,186 +640,171 @@ btnResetLoanFilter.onclick = () => {
 
 // ======= DUYỆT YÊU CẦU MƯỢN =======
 window.approveLoanWithDates = async (id) => {
-    const startEl = document.getElementById("ap_start_" + id);
-    const dueEl = document.getElementById("ap_due_" + id);
+  const startEl = document.getElementById("ap_start_" + id);
+  const dueEl = document.getElementById("ap_due_" + id);
 
-    const start = startEl?.value ? new Date(startEl.value + "T00:00:00") : null;
-    const due = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : null;
+  // Nếu admin không nhập, lấy thời điểm hiện tại
+  let start = startEl?.value ? new Date(startEl.value + "T00:00:00") : new Date();
+  let due = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : new Date();
 
-    if (!start || !due) {
-        alert("Chọn ngày bắt đầu và hạn trả.");
-        return;
-    }
+  // Bảo đảm due >= start
+  if (due < start) due = new Date(start.getTime() + 24*60*60*1000);
 
-    const loanRef = doc(db, "loans", id);
-    const loanSnap = await getDoc(loanRef);
-    if (!loanSnap.exists()) return;
+  const loanRef = doc(db, "loans", id);
+  const loanSnap = await getDoc(loanRef);
+  if (!loanSnap.exists()) return;
 
-    const loan = loanSnap.data();
-    if (loan.status !== "pending") return alert("Yêu cầu đã xử lý.");
+  const loan = loanSnap.data();
+  if (loan.status !== "pending") return alert("Yêu cầu đã xử lý.");
 
-    // Trừ số lượng thiết bị
-    const eqRef = doc(db, "equipment", loan.equipmentId);
-    const eqSnap = await getDoc(eqRef);
-    const eq = eqSnap.data();
+  // Trừ số lượng thiết bị
+  const eqRef = doc(db, "equipment", loan.equipmentId);
+  const eqSnap = await getDoc(eqRef);
+  const eq = eqSnap.data();
 
-    if (eq.quantity_available < loan.quantity) {
-        alert("Không đủ thiết bị.");
-        return;
-    }
+  if (eq.quantity_available < loan.quantity) {
+    alert("Không đủ thiết bị.");
+    return;
+  }
 
-    await updateDoc(eqRef, {
-        quantity_available: eq.quantity_available - loan.quantity
-    });
+  await updateDoc(eqRef, { quantity_available: eq.quantity_available - loan.quantity });
 
-    await updateDoc(loanRef, {
-        status: "approved",
-        approvedBy: currentUser.email,
-        approvedAt: serverTimestamp(),
-        startAt: Timestamp.fromDate(start),
-        dueAt: Timestamp.fromDate(due),
-        adminNote: loan.adminNote || ""
-    });
+  await updateDoc(loanRef, {
+    status: "approved",
+    approvedBy: currentUser.email,
+    approvedAt: serverTimestamp(),
+    startAt: Timestamp.fromDate(start),
+    dueAt: Timestamp.fromDate(due),
+    adminNote: loan.adminNote || ""
+  });
 
-    // Lấy lại loan để gửi email
-    const loanSnap2 = await getDoc(loanRef);
-    const loanFixed = {
-        id,
-        ...loanSnap2.data(),
-        equipmentName: eq.name,
-        qty: loan.quantity,
-        userEmail: loan.userEmail,
-        userName: loan.userName
-    };
+  const loanSnap2 = await getDoc(loanRef);
+  const loanFixed = {
+    id,
+    ...loanSnap2.data(),
+    equipmentName: eq.name,
+    qty: loan.quantity,
+    userEmail: loan.userEmail,
+    userName: loan.userName
+  };
 
-    await enqueueEmail(loanFixed, "approved");
-    await refreshAllLoans();
-    await refreshMyLoans();
+  await enqueueEmail(loanFixed, "approved");
+  await refreshAllLoans();
+  await refreshMyLoans();
 };
-
-
 
 // ======= TỪ CHỐI YÊU CẦU =======
 window.rejectLoan = async (id) => {
-    const reason = prompt("Lý do từ chối:");
-    if (reason === null) return;
+  const reason = prompt("Lý do từ chối:");
+  if (reason === null) return;
 
-    const loanRef = doc(db, "loans", id);
-    const loanSnap = await getDoc(loanRef);
-    const loan = loanSnap.data();
+  const loanRef = doc(db, "loans", id);
+  const loanSnap = await getDoc(loanRef);
+  const loan = loanSnap.data();
 
-    await updateDoc(loanRef, {
-        status: "rejected",
-        rejectedReason: reason,
-        adminNote: reason,
-        approvedBy: currentUser.email,
-        approvedAt: serverTimestamp()
-    });
+  await updateDoc(loanRef, {
+    status: "rejected",
+    rejectedReason: reason,
+    adminNote: reason,
+    approvedBy: currentUser.email,
+    approvedAt: serverTimestamp()
+  });
 
-    // Load thiết bị
-    const eqRef = doc(db, "equipment", loan.equipmentId);
-    const eqSnap = await getDoc(eqRef);
-    const eq = eqSnap.data();
+  const eqRef = doc(db, "equipment", loan.equipmentId);
+  const eqSnap = await getDoc(eqRef);
+  const eq = eqSnap.data();
 
-    const loanFixed = {
-        id,
-        ...loan,
-        equipmentName: eq.name,
-        qty: loan.quantity,
-        userEmail: loan.userEmail,
-        userName: loan.userName,
-        adminNote: reason
-    };
+  const loanFixed = {
+    id,
+    ...loan,
+    equipmentName: eq.name,
+    qty: loan.quantity,
+    userEmail: loan.userEmail,
+    userName: loan.userName,
+    adminNote: reason
+  };
 
-    await enqueueEmail(loanFixed, "rejected");
-    await refreshAllLoans();
-    await refreshMyLoans();
+  await enqueueEmail(loanFixed, "rejected");
+  await refreshAllLoans();
+  await refreshMyLoans();
 };
-
-
 
 // ======= GIA HẠN =======
 window.extendLoan = async (id) => {
-    const newDueEl = document.getElementById("extend_due_" + id);
-    if (!newDueEl || !newDueEl.value) return alert("Chọn ngày gia hạn");
+  const newDueEl = document.getElementById("extend_due_" + id);
+  let newDue = newDueEl?.value ? new Date(newDueEl.value + "T23:59:59") : new Date();
 
-    const newDue = new Date(newDueEl.value + "T23:59:59");
+  const loanRef = doc(db, "loans", id);
+  const loanSnap = await getDoc(loanRef);
+  const loan = loanSnap.data();
 
-    const loanRef = doc(db, "loans", id);
-    await updateDoc(loanRef, {
-        status: "extended",
-        dueAt: Timestamp.fromDate(newDue),
-        updatedAt: serverTimestamp()
-    });
+  // Nếu ngày mới < ngày mượn, đặt = ngày mượn
+  const startAt = loan.startAt?.toDate() || new Date();
+  if (newDue < startAt) newDue = new Date(startAt.getTime() + 24*60*60*1000);
 
-    const loanSnap = await getDoc(loanRef);
-    const loan = loanSnap.data();
+  await updateDoc(loanRef, {
+    status: "extended",
+    dueAt: Timestamp.fromDate(newDue),
+    updatedAt: serverTimestamp()
+  });
 
-    const eqRef = doc(db, "equipment", loan.equipmentId);
-    const eqSnap = await getDoc(eqRef);
-    const eq = eqSnap.data();
+  const eqRef = doc(db, "equipment", loan.equipmentId);
+  const eqSnap = await getDoc(eqRef);
+  const eq = eqSnap.data();
 
-    const loanFixed = {
-        id,
-        ...loan,
-        equipmentName: eq.name,
-        qty: loan.quantity,
-        userEmail: loan.userEmail,
-        userName: loan.userName
-    };
+  const loanFixed = {
+    id,
+    ...loan,
+    equipmentName: eq.name,
+    qty: loan.quantity,
+    userEmail: loan.userEmail,
+    userName: loan.userName
+  };
 
-    await enqueueEmail(loanFixed, "extended");
-    await refreshAllLoans();
-    await refreshMyLoans();
+  await enqueueEmail(loanFixed, "extended");
+  await refreshAllLoans();
+  await refreshMyLoans();
 };
-
-
 
 // ======= XÁC NHẬN ĐÃ TRẢ =======
 window.returnLoanWithTime = async (id) => {
-    const retEl = document.getElementById("ret_at_" + id);
-    if (!retEl || !retEl.value) {
-        alert("Chọn thời điểm trả");
-        return;
-    }
+  const retEl = document.getElementById("ret_at_" + id);
+  let retDate = retEl?.value ? new Date(retEl.value) : new Date();
 
-    const retDate = new Date(retEl.value);
+  const loanRef = doc(db, "loans", id);
+  const loanSnap = await getDoc(loanRef);
+  const loan = loanSnap.data();
 
-    const loanRef = doc(db, "loans", id);
-    const loanSnap = await getDoc(loanRef);
-    const loan = loanSnap.data();
+  const startAt = loan.startAt?.toDate() || new Date();
+  if (retDate < startAt) retDate = new Date(startAt.getTime() + 60*1000); // ít nhất sau 1 phút
 
-    // Cộng lại thiết bị
-    const eqRef = doc(db, "equipment", loan.equipmentId);
-    const eqSnap = await getDoc(eqRef);
-    const eq = eqSnap.data();
+  const eqRef = doc(db, "equipment", loan.equipmentId);
+  const eqSnap = await getDoc(eqRef);
+  const eq = eqSnap.data();
 
-    await updateDoc(eqRef, {
-        quantity_available: eq.quantity_available + loan.quantity
-    });
+  await updateDoc(eqRef, { quantity_available: eq.quantity_available + loan.quantity });
 
-    await updateDoc(loanRef, {
-        status: "returned",
-        returned: true,
-        returnedAt: Timestamp.fromDate(retDate),
-        updatedAt: serverTimestamp()
-    });
+  await updateDoc(loanRef, {
+    status: "returned",
+    returned: true,
+    returnedAt: Timestamp.fromDate(retDate),
+    updatedAt: serverTimestamp()
+  });
 
-    const loanSnap2 = await getDoc(loanRef);
-    const loanFixed = {
-        id,
-        ...loanSnap2.data(),
-        equipmentName: eq.name,
-        qty: loan.quantity,
-        userEmail: loan.userEmail,
-        userName: loan.userName
-    };
+  const loanSnap2 = await getDoc(loanRef);
+  const loanFixed = {
+    id,
+    ...loanSnap2.data(),
+    equipmentName: eq.name,
+    qty: loan.quantity,
+    userEmail: loan.userEmail,
+    userName: loan.userName
+  };
 
-    await enqueueEmail(loanFixed, "returned");
-    await refreshAllLoans();
-    await refreshMyLoans();
+  await enqueueEmail(loanFixed, "returned");
+  await refreshAllLoans();
+  await refreshMyLoans();
 };
-
 
 
 

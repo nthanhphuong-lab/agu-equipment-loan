@@ -649,52 +649,33 @@ window.approveLoanWithDates = async (id) => {
   const loan = loanSnap.data();
   if (loan.status !== "pending") return alert("Yêu cầu đã xử lý.");
 
-  const proposedStart = loan.startAt ? loan.startAt.toDate() : new Date();
-  const proposedDue = loan.dueAt ? loan.dueAt.toDate() : new Date();
-
-  let start = startEl?.value ? new Date(startEl.value + "T00:00:00") : null;
-  let due = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : null;
-
-  // Trường hợp admin không chọn gì
-  if (!start && !due) {
-    start = proposedStart;
-    due = proposedDue;
-  }
-  // Trường hợp admin chỉ chọn ngày kết thúc
-  else if (!start && due) {
-    start = proposedStart;
-    if (due < start) {
-      alert("Ngày kết thúc phải lớn hơn ngày bắt đầu đề xuất của user!");
-      return;
-    }
-  }
-  // Trường hợp admin chỉ chọn ngày bắt đầu
-  else if (start && !due) {
-    due = proposedDue;
-    if (due < start) {
-      alert("Ngày kết thúc đề xuất của user nhỏ hơn ngày bắt đầu admin chọn!");
-      return;
-    }
-  }
-  // Trường hợp admin chọn cả 2: kiểm tra hợp lệ
-  else if (start && due) {
-    if (due < start) {
-      alert("Ngày kết thúc phải lớn hơn ngày bắt đầu!");
-      return;
-    }
-  }
-
-  // Kiểm tra số lượng thiết bị
   const eqRef = doc(db, "equipment", loan.equipmentId);
   const eqSnap = await getDoc(eqRef);
   const eq = eqSnap.data();
+
   if (eq.quantity_available < loan.quantity) {
     alert("Không đủ thiết bị.");
     return;
   }
-  await updateDoc(eqRef, { quantity_available: eq.quantity_available - loan.quantity });
 
-  // Cập nhật loan
+  // Xử lý ngày mượn và ngày trả
+  const userStart = loan.startAt ? loan.startAt.toDate() : new Date();
+  const userDue = loan.dueAt ? loan.dueAt.toDate() : new Date();
+
+  let start = startEl?.value ? new Date(startEl.value + "T00:00:00") : userStart;
+  let due = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : userDue;
+
+  // Ngày kết thúc admin chọn không được nhỏ hơn ngày bắt đầu của user
+  if (due < userStart) {
+    alert("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu do user đề xuất.");
+    return;
+  }
+
+  // Trừ số lượng thiết bị
+  await updateDoc(eqRef, {
+    quantity_available: eq.quantity_available - loan.quantity
+  });
+
   await updateDoc(loanRef, {
     status: "approved",
     approvedBy: currentUser.email,
@@ -704,7 +685,6 @@ window.approveLoanWithDates = async (id) => {
     adminNote: loan.adminNote || ""
   });
 
-  // Lấy lại loan để gửi email
   const loanSnap2 = await getDoc(loanRef);
   const loanFixed = {
     id,

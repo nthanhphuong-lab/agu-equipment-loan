@@ -658,14 +658,18 @@ window.approveLoanWithDates = async (id) => {
     return;
   }
 
-  // Xử lý ngày mượn và ngày trả
+  // Ngày đề xuất của user
   const userStart = loan.startAt ? loan.startAt.toDate() : new Date();
   const userDue = loan.dueAt ? loan.dueAt.toDate() : new Date();
 
-  let start = startEl?.value ? new Date(startEl.value + "T00:00:00") : userStart;
-  let due = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : userDue;
+  // Ngày admin chọn
+  let adminStart = startEl?.value ? new Date(startEl.value + "T00:00:00") : null;
+  let adminDue = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : null;
 
-  // Ngày kết thúc admin chọn không được nhỏ hơn ngày bắt đầu của user
+  // Tính ngày thực tế duyệt
+  const start = adminStart || userStart;
+  const due = adminDue || userDue;
+
   if (due < userStart) {
     alert("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu do user đề xuất.");
     return;
@@ -699,6 +703,7 @@ window.approveLoanWithDates = async (id) => {
   await refreshAllLoans();
   await refreshMyLoans();
 };
+
 
 
 // ======= GIA HẠN =======

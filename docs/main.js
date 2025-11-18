@@ -659,18 +659,19 @@ window.approveLoanWithDates = async (id) => {
   }
 
   // Ngày đề xuất của user
-  const userStart = loan.startAt ? loan.startAt.toDate() : new Date();
-  const userDue = loan.dueAt ? loan.dueAt.toDate() : new Date();
+  const proposedStart = loan.startAt?.toDate() || new Date();
+  const proposedDue = loan.dueAt?.toDate() || new Date();
 
-  // Ngày admin chọn
-  let adminStart = startEl?.value ? new Date(startEl.value + "T00:00:00") : null;
-  let adminDue = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : null;
+  // Ngày admin chọn (có thể null)
+  const adminStart = startEl?.value ? new Date(startEl.value + "T00:00:00") : null;
+  const adminDue = dueEl?.value ? new Date(dueEl.value + "T23:59:59") : null;
 
-  // Tính ngày thực tế duyệt
-  const start = adminStart || userStart;
-  const due = adminDue || userDue;
+  // Xác định ngày thực tế
+  const start = adminStart || proposedStart;
+  const due = adminDue || proposedDue;
 
-  if (due < userStart) {
+  // Kiểm tra hợp lệ
+  if (due < proposedStart) {
     alert("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu do user đề xuất.");
     return;
   }
@@ -680,6 +681,7 @@ window.approveLoanWithDates = async (id) => {
     quantity_available: eq.quantity_available - loan.quantity
   });
 
+  // Cập nhật loan
   await updateDoc(loanRef, {
     status: "approved",
     approvedBy: currentUser.email,
@@ -689,6 +691,7 @@ window.approveLoanWithDates = async (id) => {
     adminNote: loan.adminNote || ""
   });
 
+  // Lấy lại loan để gửi email
   const loanSnap2 = await getDoc(loanRef);
   const loanFixed = {
     id,
@@ -696,13 +699,16 @@ window.approveLoanWithDates = async (id) => {
     equipmentName: eq.name,
     qty: loan.quantity,
     userEmail: loan.userEmail,
-    userName: loan.userName
+    userName: loan.userName,
+    proposedStartAt: proposedStart,
+    proposedDueAt: proposedDue
   };
 
   await enqueueEmail(loanFixed, "approved");
   await refreshAllLoans();
   await refreshMyLoans();
 };
+
 
 
 

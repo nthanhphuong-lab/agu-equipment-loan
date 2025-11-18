@@ -662,13 +662,16 @@ window.approveLoanWithDates = async (id) => {
   let start = adminStart || proposedStart;
   let due = adminDue || proposedDue;
 
-  // Kiểm tra hợp lệ
+  // Nếu admin chỉ chọn ngày kết thúc, start lấy từ user đề xuất
+  if (!adminStart && adminDue) start = proposedStart;
+
+  // Kiểm tra hợp lệ: ngày kết thúc không nhỏ hơn ngày bắt đầu đề xuất
   if (due < proposedStart) {
     alert("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu do user đề xuất.");
     return;
   }
 
-  // Trừ số lượng thiết bị
+  // Kiểm tra thiết bị đủ số lượng
   const eqRef = doc(db, "equipment", loan.equipmentId);
   const eqSnap = await getDoc(eqRef);
   const eq = eqSnap.data();
@@ -703,6 +706,7 @@ window.approveLoanWithDates = async (id) => {
   await refreshAllLoans();
   await refreshMyLoans();
 };
+
 
 
 

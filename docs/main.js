@@ -1017,25 +1017,23 @@ document.getElementById("btnExportPDF").onclick = exportLoansPDF;
 
 // ================== HELPER ==================
 function formatDate(timestamp) {
-  if (!timestamp || !timestamp.toDate) return "(Không có)";
-  const date = timestamp.toDate();
+  if (!timestamp) return "(Không có)";
+  
+  // Nếu timestamp là Firestore Timestamp
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+
   const day = String(date.getDate()).padStart(2,'0');
   const month = String(date.getMonth()+1).padStart(2,'0');
   const year = date.getFullYear();
-
   let hours = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2,'0');
   const seconds = String(date.getSeconds()).padStart(2,'0');
   const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12;
-  hours = hours ? hours : 12;
+  hours = hours % 12 || 12;
   hours = String(hours).padStart(2,'0');
 
   return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
 }
-
-
-
 
 // ================== STATUS MAP ==================
 const statusMap = {
@@ -1057,21 +1055,28 @@ async function enqueueEmail(loan, status) {
     const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    // Tạo body text đơn giản
-    let bodyText = `
-Thiết bị: ${loan.equipmentName || "(Không có)"}
-Số lượng: ${quantity}
-Trạng thái: ${statusMap[status] || status}
-Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
-`.trim();
+    // Lấy ngày hợp lệ: nếu null thì lấy thời điểm tạo/duyệt
+    const startAt = loan.startAt || loan.approvedAt || new Date();
+    const dueAt = loan.dueAt || startAt;
+    const returnedAt = loan.returnedAt || null;
+
+    // Tạo body text
+    let bodyText = `Thiết bị: ${loan.equipmentName || "(Không có)"}\n`;
+    bodyText += `Số lượng: ${quantity}\n`;
+    bodyText += `Trạng thái: ${statusMap[status] || status}\n`;
 
     if (status === "approved") {
-      bodyText += `\nNgày mượn: ${formatDate(loan.startAt)}\nNgày trả / gia hạn: ${formatDate(loan.dueAt)}`;
+      bodyText += `Ngày mượn: ${formatDate(startAt)}\n`;
+      bodyText += `Ngày trả / gia hạn: ${formatDate(dueAt)}\n`;
     } else if (status === "extended") {
-      bodyText += `\nNgày mượn: ${formatDate(loan.startAt)}\nNgày gia hạn: ${formatDate(loan.dueAt)}`;
+      bodyText += `Ngày mượn: ${formatDate(startAt)}\n`;
+      bodyText += `Ngày gia hạn: ${formatDate(dueAt)}\n`;
     } else if (status === "returned") {
-      bodyText += `\nNgày mượn: ${formatDate(loan.startAt)}\nNgày trả: ${formatDate(loan.returnedAt)}`;
+      bodyText += `Ngày mượn: ${formatDate(startAt)}\n`;
+      bodyText += `Ngày trả thực tế: ${formatDate(returnedAt)}\n`;
     }
+
+    bodyText += `Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}`;
 
     // Lưu vào Firestore
     const emailData = {
@@ -1082,10 +1087,10 @@ Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
       qty: quantity,
       type: status,
       subject: statusMap[status] || "",
-      body: bodyText,       // chỉ text, không HTML
-      startAt: loan.startAt || null,
-      dueAt: loan.dueAt || null,
-      returnedAt: loan.returnedAt || null,
+      body: bodyText,
+      startAt,
+      dueAt,
+      returnedAt,
       adminNote: loan.adminNote || "",
       createdAt: serverTimestamp()
     };

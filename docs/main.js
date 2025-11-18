@@ -695,7 +695,41 @@ window.approveLoanWithDates = async (id) => {
   await refreshMyLoans();
 };
 
+// ======= TỪ CHỐI YÊU CẦU =======
+window.rejectLoan = async (id) => {
+  const reason = prompt("Lý do từ chối:");
+  if (reason === null) return;
 
+  const loanRef = doc(db, "loans", id);
+  const loanSnap = await getDoc(loanRef);
+  const loan = loanSnap.data();
+
+  await updateDoc(loanRef, {
+    status: "rejected",
+    rejectedReason: reason,
+    adminNote: reason,
+    approvedBy: currentUser.email,
+    approvedAt: serverTimestamp()
+  });
+
+  const eqRef = doc(db, "equipment", loan.equipmentId);
+  const eqSnap = await getDoc(eqRef);
+  const eq = eqSnap.data();
+
+  const loanFixed = {
+    id,
+    ...loan,
+    equipmentName: eq.name,
+    qty: loan.quantity,
+    userEmail: loan.userEmail,
+    userName: loan.userName,
+    adminNote: reason
+  };
+
+  await enqueueEmail(loanFixed, "rejected");
+  await refreshAllLoans();
+  await refreshMyLoans();
+};
 // ======= GIA HẠN =======
 window.extendLoan = async (id) => {
   const newDueEl = document.getElementById("extend_due_" + id);
@@ -1030,7 +1064,7 @@ async function enqueueEmail(loan, type) {
     const emailData = {
       loanId: loan.id,
       userEmail: loan.userEmail,
-      userName: loan.userName,
+      userName: loan.userName || "",
       equipmentName: loan.equipmentName,
       qty: loan.qty,
 

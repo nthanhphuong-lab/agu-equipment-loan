@@ -765,43 +765,51 @@ window.extendLoan = async (id) => {
 
 // ======= XÁC NHẬN ĐÃ TRẢ =======
 window.returnLoanWithTime = async (id) => {
-  const retEl = document.getElementById("ret_at_" + id);
-  let retDate = retEl?.value ? new Date(retEl.value) : new Date();
+if (!isAdmin) return alert("Chỉ admin mới xác nhận trả thiết bị.");
 
-  const loanRef = doc(db, "loans", id);
-  const loanSnap = await getDoc(loanRef);
-  if (!loanSnap.exists()) return;
+const retEl = document.getElementById("ret_at_" + id);
+let retDate = retEl?.value ? new Date(retEl.value) : new Date();
 
-  const loan = loanSnap.data();
-  const startAt = loan.startAt?.toDate() || new Date();
-  if (retDate < startAt) retDate = new Date(startAt.getTime() + 60*1000);
+const loanRef = doc(db, "loans", id);
+const loanSnap = await getDoc(loanRef);
+if (!loanSnap.exists()) return alert("Yêu cầu không tồn tại.");
 
-  const eqRef = doc(db, "equipment", loan.equipmentId);
-  const eqSnap = await getDoc(eqRef);
-  const eq = eqSnap.data();
+const loan = loanSnap.data();
+const startAt = loan.startAt?.toDate ? loan.startAt.toDate() : new Date();
+if (retDate < startAt) retDate = new Date(startAt.getTime() + 60*1000);
 
-  await updateDoc(eqRef, { quantity_available: eq.quantity_available + loan.quantity });
+// Lấy thông tin thiết bị
+const eqRef = doc(db, "equipment", loan.equipmentId);
+const eqSnap = await getDoc(eqRef);
+const eq = eqSnap.data();
 
-  await updateDoc(loanRef, {
-    status: "returned",
-    returned: true,
-    returnedAt: Timestamp.fromDate(retDate),
-    updatedAt: serverTimestamp()
-  });
+// Cập nhật số lượng thiết bị
+await updateDoc(eqRef, { quantity_available: eq.quantity_available + loan.quantity });
 
-  const loanSnap2 = await getDoc(loanRef);
-  const loanFixed = {
-    id,
-    ...loanSnap2.data(),
-    equipmentName: eq.name || "",
-    qty: loan.quantity || 0,
-    userEmail: loan.userEmail || "",
-    userName: loan.userName || ""
-  };
+// Cập nhật trạng thái loan
+await updateDoc(loanRef, {
+status: "returned",
+returned: true,
+returnedAt: Timestamp.fromDate(retDate),
+updatedAt: serverTimestamp(),
+approvedBy: currentUser.email,   // giống duyệt
+approvedAt: serverTimestamp()
+});
 
-  await enqueueEmail(loanFixed, "returned");
-  await refreshAllLoans();
-  await refreshMyLoans();
+// Lấy lại loan để enqueue email
+const loanSnap2 = await getDoc(loanRef);
+const loanFixed = {
+id,
+...loanSnap2.data(),
+equipmentName: eq.name || "",
+qty: loan.quantity || 0,
+userEmail: loan.userEmail || "",
+userName: loan.userName || ""
+};
+
+await enqueueEmail(loanFixed, "returned");
+await refreshAllLoans();
+await refreshMyLoans();
 };
 
 

@@ -1137,6 +1137,34 @@ async function enqueueEmail(loan, status) {
       ? proposedDue
       : (loan.extendedAt?.toDate ? loan.extendedAt.toDate() : null);
 
+    const emailData = {
+      loanId: loan.id,
+      userEmail: toEmail,
+      userName,
+      equipmentName: loan.equipmentName || "",
+      qty: quantity,
+      type: status,
+      subject: statusMap[status] || "",
+      body: `
+Thiết bị: ${loan.equipmentName || "(Không có)"}
+Số lượng: ${quantity}
+Trạng thái: ${status}
+Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
+Ngày đề xuất: ${formatDateTime(proposedStart)} → ${formatDateTime(proposedDue)}
+Ngày duyệt: ${formatDateTime(approvedAt)}
+Ngày trả: ${formatDateTime(returnedAt)}
+Ngày từ chối: ${formatDateTime(rejectedAt)}
+Ngày gia hạn: ${formatDateTime(extendedDate)}
+      `.trim(),
+      createdAt: serverTimestamp()
+    };
+
+    await addDoc(collection(db, "emailQueue"), emailData);
+    console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
+  } catch (err) {
+    console.error("Email queue error:", err);
+  }
+}
 
 // EOF
 

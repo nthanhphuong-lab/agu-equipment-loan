@@ -365,7 +365,7 @@ function renderLoanCard(id, d, adminView) {
         <div><em>Người mượn đề xuất:</em> ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>
         <button onclick="approveLoanWithDates('${id}')">Duyệt</button>
         <button onclick="rejectLoan('${id}')">Từ chối</button>
-        <button onclick="deleteLoan('${id}')">Xóa</button>
+        <button onclick="deleteLoanAdmin('${id}')">Xóa</button>
       </div>`;
     } else if ((d.status === "approved" || d.status === "extended") && !d.returned) {
       adminControls += `<div style="margin-top:6px">
@@ -374,11 +374,11 @@ function renderLoanCard(id, d, adminView) {
         &nbsp; | &nbsp;
         <label>Thời điểm trả: <input type="datetime-local" id="ret_at_${id}"></label>
         <button onclick="returnLoanWithTime('${id}')">Xác nhận trả</button>
-        <button onclick="deleteLoan('${id}')">Xóa</button>
+        <button onclick="deleteLoanAdmin('${id}')">Xóa</button>
       </div>`;
     } else if (d.status === "rejected" || d.returned) {
       adminControls += `<div style="margin-top:6px">
-        <button onclick="deleteLoan('${id}')">Xóa</button>
+        <button onclick="deleteLoanAdmin('${id}')">Xóa</button>
       </div>`;
     }
   }
@@ -844,6 +844,47 @@ window.deleteLoan = async (id)=>{
   await updateDoc(loanRef,{deleted:true});
   await refreshMyLoans(); if (isAdmin) await refreshAllLoans();
 };
+
+// ================== ADMIN HARD DELETE (AUTO RESTORE QTY IF NEEDED) ==================
+window.deleteLoanAdmin = async (id) => {
+  if (!confirm("⚠ Bạn có chắc muốn xóa yêu cầu này vĩnh viễn khỏi CSDL?")) return;
+
+  const loanRef = doc(db, "loans", id);
+  const loanSnap = await getDoc(loanRef);
+  if (!loanSnap.exists()) return;
+
+  const loan = loanSnap.data();
+
+  // Chỉ phục hồi số lượng nếu loan đã duyệt và chưa trả
+  const needRestore =
+    (loan.status === "approved" || loan.status === "extended") &&
+    !loan.returned;
+
+  if (needRestore) {
+    const eqRef = doc(db, "equipment", loan.equipmentId);
+    const eqSnap = await getDoc(eqRef);
+
+    if (eqSnap.exists()) {
+      const eq = eqSnap.data();
+      const newQty = (eq.quantity_available || 0) + (loan.quantity || 0);
+
+      await updateDoc(eqRef, { quantity_available: newQty });
+    }
+  }
+
+  try {
+    await deleteDoc(loanRef);
+    alert("Đã xóa yêu cầu mượn.");
+
+    await refreshAllLoans();
+    await refreshMyLoans();
+
+  } catch (e) {
+    console.error("Lỗi khi xóa loan:", e);
+    alert("Không thể xóa. Vui lòng thử lại.");
+  }
+};
+
 
 // ================== STATS ==================
 async function refreshStats(){

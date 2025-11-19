@@ -1066,7 +1066,7 @@ const emailData = {
   type: status,
   subject: statusMap[status] || "",
   body: `
-```
+
 
 Thiết bị: ${loan.equipmentName || "(Không có)"}
 Số lượng: ${quantity}
@@ -1079,7 +1079,7 @@ Ngày trả: ${returnedAt ? returnedAt.toLocaleString() : "-"}
 createdAt: serverTimestamp()
 };
 
-```
+
 // Sử dụng addDoc để tránh lỗi permission, tạo một bản ghi mới trong collection emailQueue
 await addDoc(collection(db, "emailQueue"), emailData);
 console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);

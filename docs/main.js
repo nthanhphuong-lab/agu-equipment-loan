@@ -1039,12 +1039,6 @@ function formatDate(timestamp) {
   return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
 }
 
-async function enqueueEmail(loan, status) {
-try {
-if (!loan || !loan.id) {
-console.error("enqueueEmail: loan or loan.id is missing");
-return;
-}
 
 // ================== EMAIL QUEUE ==================
 const statusMap = {
@@ -1099,5 +1093,4 @@ Ngày trả: ${returnedAt ? returnedAt.toLocaleString() : "-"}
     console.error("Email queue error:", err);
   }
 }
-
-// EOF
+ //EOF 

@@ -23,6 +23,17 @@
     .tab-btn.active{background:#111;color:#fff}
     .page{margin-top:8px}
     .muted{color:#6b7280}
+
+
+    /* Modal cơ bản */
+    .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; overflow:auto; background: rgba(0,0,0,0.5);}
+    .modal-content { background:#fff; margin:10% auto; padding:20px; border-radius:5px; width:400px; max-width:90%; }
+    .close { float:right; font-size:24px; cursor:pointer; }
+    .modal-actions { margin-top:20px; display:flex; justify-content:space-between; }
+    .modal-actions button { padding:6px 12px; cursor:pointer; }
+    .highlight { background: #ffff99; transition: background 1s; }
+
+
   </style>
 </head>
 <body>
@@ -158,5 +169,22 @@
   </section>
 
   <script type="module" src="./main.js"></script>
+
+  <!-- Modal Chi Tiết Yêu Cầu Mượn -->
+<div id="loanModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h2 class="modal-title">Chi tiết yêu cầu</h2>
+    <div class="modal-body">
+      <!-- Nội dung chi tiết sẽ được JS cập nhật -->
+    </div>
+    <div class="modal-actions">
+      <button id="approveBtn">Duyệt</button>
+      <button id="rejectBtn">Từ chối</button>
+      <button id="extendBtn">Gia hạn</button>
+      <button id="returnBtn">Đã trả</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

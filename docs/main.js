@@ -575,7 +575,6 @@ window.displayLoans = function(list, targetEl){
   targetEl.innerHTML = "";
   list.forEach(l => targetEl.innerHTML += renderLoanCard(l.id, l, isAdmin));
 };
-
 // ================== REFRESH MY LOANS ==================
 async function refreshMyLoans(){
   if (!currentUser) return;
@@ -591,6 +590,7 @@ async function refreshMyLoans(){
       }
     });
 
+    // Mặc định sort theo trạng thái + thời gian hành động
     arr = sortLoans(arr);
     displayLoans(arr, myLoans);
 
@@ -617,6 +617,7 @@ async function refreshAllLoans(){
       }
     });
 
+    // Mặc định sort theo trạng thái + thời gian hành động
     arr = sortLoans(arr);
     displayLoans(arr, allLoans);
 
@@ -627,6 +628,7 @@ async function refreshAllLoans(){
     allLoans.innerHTML = "<p>Không tải được dữ liệu.</p>";
   }
 }
+
 
 // ================== RENDER LOANS ==================
 window.renderLoans = function(){

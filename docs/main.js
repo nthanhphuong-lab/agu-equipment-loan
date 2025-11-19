@@ -637,144 +637,150 @@ btnResetLoanFilter.onclick = () => {
 
 // ================== ADMIN LOAN ACTIONS ==================
 
-// ================== ADMIN LOAN ACTIONS ==================
-
 // ======= DUYỆT YÊU CẦU MƯỢN =======
 window.approveLoanWithDates = async (id) => {
-  const loanRef = doc(db, "loans", id);
-  const loanSnap = await getDoc(loanRef);
-  if (!loanSnap.exists()) return;
+if (!isAdmin) return alert("Chỉ admin mới duyệt được yêu cầu.");
 
-  const loan = loanSnap.data();
-  if (loan.status !== "pending") return alert("Yêu cầu đã được xử lý trước đó.");
+const loanRef = doc(db, "loans", id);
+const loanSnap = await getDoc(loanRef);
+if (!loanSnap.exists()) return alert("Yêu cầu không tồn tại.");
 
-  // Lấy ngày đề xuất từ user
-  const start = loan.startAt?.toDate() || new Date();
-  const due = loan.dueAt?.toDate() || start;
+const loan = loanSnap.data();
+if (loan.status !== "pending") return alert("Yêu cầu đã được xử lý trước đó.");
 
-  // Trừ số lượng thiết bị
-  const eqRef = doc(db, "equipment", loan.equipmentId);
-  const eqSnap = await getDoc(eqRef);
-  const eq = eqSnap.data();
+// Ngày đề xuất từ user
+const start = loan.startAt?.toDate ? loan.startAt.toDate() : new Date();
+const due = loan.dueAt?.toDate ? loan.dueAt.toDate() : start;
 
-  if (eq.quantity_available < loan.quantity) return alert("Không đủ thiết bị.");
+// Kiểm tra số lượng thiết bị
+const eqRef = doc(db, "equipment", loan.equipmentId);
+const eqSnap = await getDoc(eqRef);
+const eq = eqSnap.data();
+if (eq.quantity_available < loan.quantity) return alert("Không đủ thiết bị.");
 
-  await updateDoc(eqRef, { quantity_available: eq.quantity_available - loan.quantity });
+// Cập nhật số lượng thiết bị
+await updateDoc(eqRef, { quantity_available: eq.quantity_available - loan.quantity });
 
-  // Cập nhật loan
-  await updateDoc(loanRef, {
-    status: "approved",
-    approvedBy: currentUser.email,
-    approvedAt: serverTimestamp(),
-    startAt: Timestamp.fromDate(start),
-    dueAt: Timestamp.fromDate(due),
-    adminNote: loan.adminNote || ""
-  });
+// Cập nhật trạng thái duyệt và mốc thời gian
+await updateDoc(loanRef, {
+status: "approved",
+approvedBy: currentUser.email,
+approvedAt: serverTimestamp(),
+startAt: Timestamp.fromDate(start),
+dueAt: Timestamp.fromDate(due),
+adminNote: loan.adminNote || ""
+});
 
-  // Lấy lại loan để enqueue email
-  const loanSnap2 = await getDoc(loanRef);
-  const loanFixed = {
-    id,
-    ...loanSnap2.data(),
-    equipmentName: eq.name || "",
-    qty: loan.quantity || 0,
-    userEmail: loan.userEmail || "",
-    userName: loan.userName || ""
-  };
+const loanSnap2 = await getDoc(loanRef);
+const loanFixed = {
+id,
+...loanSnap2.data(),
+equipmentName: eq.name || "",
+qty: loan.quantity || 0,
+userEmail: loan.userEmail || "",
+userName: loan.userName || ""
+};
 
-  await enqueueEmail(loanFixed, "approved");
-  await refreshAllLoans();
-  await refreshMyLoans();
+await enqueueEmail(loanFixed, "approved");
+await refreshAllLoans();
+await refreshMyLoans();
 };
 
 // ======= TỪ CHỐI YÊU CẦU =======
 window.rejectLoan = async (id) => {
-  const reason = prompt("Lý do từ chối:");
-  if (reason === null) return;
+if (!isAdmin) return alert("Chỉ admin mới từ chối yêu cầu.");
 
-  const loanRef = doc(db, "loans", id);
-  const loanSnap = await getDoc(loanRef);
-  if (!loanSnap.exists()) return;
+const reason = prompt("Lý do từ chối:");
+if (reason === null) return;
 
-  const loan = loanSnap.data();
-  await updateDoc(loanRef, {
-    status: "rejected",
-    rejectedReason: reason,
-    adminNote: reason,
-    approvedBy: currentUser.email,
-    approvedAt: serverTimestamp()
-  });
+const loanRef = doc(db, "loans", id);
+const loanSnap = await getDoc(loanRef);
+if (!loanSnap.exists()) return alert("Yêu cầu không tồn tại.");
+const loan = loanSnap.data();
 
-  const eqRef = doc(db, "equipment", loan.equipmentId);
-  const eqSnap = await getDoc(eqRef);
-  const eq = eqSnap.data();
+await updateDoc(loanRef, {
+status: "rejected",
+rejectedReason: reason,
+adminNote: reason,
+rejectedBy: currentUser.email,
+rejectedAt: serverTimestamp()
+});
 
-  const loanFixed = {
-    id,
-    ...loan,
-    equipmentName: eq.name || "",
-    qty: loan.quantity || 0,
-    userEmail: loan.userEmail || "",
-    userName: loan.userName || "",
-    adminNote: reason || ""
-  };
+const eqRef = doc(db, "equipment", loan.equipmentId);
+const eqSnap = await getDoc(eqRef);
+const eq = eqSnap.data();
 
-  await enqueueEmail(loanFixed, "rejected");
-  await refreshAllLoans();
-  await refreshMyLoans();
+const loanFixed = {
+id,
+...loan,
+equipmentName: eq.name || "",
+qty: loan.quantity || 0,
+userEmail: loan.userEmail || "",
+userName: loan.userName || "",
+adminNote: reason
+};
+
+await enqueueEmail(loanFixed, "rejected");
+await refreshAllLoans();
+await refreshMyLoans();
 };
 
 // ======= GIA HẠN =======
 window.extendLoan = async (id) => {
-  const newDueEl = document.getElementById("extend_due_" + id);
-  if (!newDueEl || !newDueEl.value) return alert("Chọn ngày gia hạn");
+if (!isAdmin) return alert("Chỉ admin mới gia hạn.");
 
-  const loanRef = doc(db, "loans", id);
-  const loanSnap = await getDoc(loanRef);
-  if (!loanSnap.exists()) return;
-  const loan = loanSnap.data();
+const newDueEl = document.getElementById("extend_due_" + id);
+if (!newDueEl?.value) return alert("Chọn ngày gia hạn");
 
-  const currentStart = loan.startAt?.toDate() || new Date();
-  const newDue = new Date(newDueEl.value + "T23:59:59");
-  if (newDue < currentStart) return alert("Ngày gia hạn phải lớn hơn hoặc bằng ngày bắt đầu mượn.");
+const loanRef = doc(db, "loans", id);
+const loanSnap = await getDoc(loanRef);
+if (!loanSnap.exists()) return alert("Yêu cầu không tồn tại.");
+const loan = loanSnap.data();
 
-  await updateDoc(loanRef, {
-    status: "extended",
-    dueAt: Timestamp.fromDate(newDue),
-    updatedAt: serverTimestamp()
-  });
+// Ngày bắt đầu thực tế (do admin duyệt)
+const actualStart = loan.startAt?.toDate ? loan.startAt.toDate() : new Date();
+const newDue = new Date(newDueEl.value + "T23:59:59");
+if (newDue < actualStart) return alert("Ngày gia hạn phải lớn hơn hoặc bằng ngày bắt đầu thực tế.");
 
-  const eqRef = doc(db, "equipment", loan.equipmentId);
-  const eqSnap = await getDoc(eqRef);
-  const eq = eqSnap.data();
+// Cập nhật trạng thái gia hạn + mốc thời gian
+await updateDoc(loanRef, {
+status: "extended",
+dueAt: Timestamp.fromDate(newDue),
+extendedBy: currentUser.email,
+extendedAt: serverTimestamp()
+});
 
-  const loanFixed = {
-    id,
-    ...loan,
-    dueAt: Timestamp.fromDate(newDue),
-    equipmentName: eq.name || "",
-    qty: loan.quantity || 0,
-    userEmail: loan.userEmail || "",
-    userName: loan.userName || ""
-  };
+const eqRef = doc(db, "equipment", loan.equipmentId);
+const eqSnap = await getDoc(eqRef);
+const eq = eqSnap.data();
 
-  await enqueueEmail(loanFixed, "extended");
-  await refreshAllLoans();
-  await refreshMyLoans();
+const loanFixed = {
+id,
+...loan,
+dueAt: Timestamp.fromDate(newDue),
+equipmentName: eq.name || "",
+qty: loan.quantity || 0,
+userEmail: loan.userEmail || "",
+userName: loan.userName || ""
+};
+
+await enqueueEmail(loanFixed, "extended");
+await refreshAllLoans();
+await refreshMyLoans();
 };
 
 // ======= XÁC NHẬN ĐÃ TRẢ =======
 window.returnLoanWithTime = async (id) => {
-if (!isAdmin) return alert("Chỉ admin mới có quyền xác nhận trả thiết bị.");
+if (!isAdmin) return alert("Chỉ admin mới xác nhận trả thiết bị.");
 
 const retEl = document.getElementById("ret_at_" + id);
 let retDate = retEl?.value ? new Date(retEl.value) : new Date();
 
 const loanRef = doc(db, "loans", id);
 const loanSnap = await getDoc(loanRef);
-if (!loanSnap.exists()) return;
-
+if (!loanSnap.exists()) return alert("Yêu cầu không tồn tại.");
 const loan = loanSnap.data();
+
 const startAt = loan.startAt?.toDate ? loan.startAt.toDate() : new Date();
 if (retDate < startAt) retDate = new Date(startAt.getTime() + 60 * 1000);
 
@@ -785,16 +791,14 @@ const eq = eqSnap.data();
 // Cập nhật số lượng thiết bị
 await updateDoc(eqRef, { quantity_available: eq.quantity_available + loan.quantity });
 
-// Cập nhật trạng thái loan
+// Cập nhật trạng thái trả
 await updateDoc(loanRef, {
 status: "returned",
 returned: true,
 returnedAt: Timestamp.fromDate(retDate),
-updatedAt: serverTimestamp(),
-approvedBy: currentUser.email
+returnedBy: currentUser.email
 });
 
-// Lấy lại loan và enqueue email
 const loanSnap2 = await getDoc(loanRef);
 const loanFixed = {
 id,
@@ -1047,26 +1051,28 @@ const statusMap = {
   extended: "Gia hạn mượn thiết bị"
 };
 
+// Các hàm admin loan actions: approveLoanWithDates, rejectLoan, extendLoan, returnLoanWithTime
+
+// enqueueEmail chỉ khai báo một lần
 async function enqueueEmail(loan, status) {
   try {
-    if (!loan || !loan.id) {
-      console.error("enqueueEmail: loan or loan.id is missing");
-      return;
-    }
+    if (!loan || !loan.id) return console.error("enqueueEmail: loan or loan.id missing");
 
     const toEmail = loan.userEmail || "";
     const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    const proposedStart = loan.startAt?.toDate ? loan.startAt.toDate() : (loan.startAt || new Date());
-    const proposedDue = loan.dueAt?.toDate ? loan.dueAt.toDate() : (loan.dueAt || new Date());
+    const proposedStart = loan.startAt?.toDate ? loan.startAt.toDate() : new Date();
+    const proposedDue = loan.dueAt?.toDate ? loan.dueAt.toDate() : new Date();
     const approvedAt = loan.approvedAt?.toDate ? loan.approvedAt.toDate() : null;
     const returnedAt = loan.returnedAt?.toDate ? loan.returnedAt.toDate() : null;
+    const rejectedAt = loan.rejectedAt?.toDate ? loan.rejectedAt.toDate() : null;
+    const extendedAt = loan.extendedAt?.toDate ? loan.extendedAt.toDate() : null;
 
     const emailData = {
       loanId: loan.id,
       userEmail: toEmail,
-      userName: userName,
+      userName,
       equipmentName: loan.equipmentName || "",
       qty: quantity,
       type: status,
@@ -1079,16 +1085,18 @@ Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
 Ngày đề xuất: ${proposedStart.toLocaleDateString()} → ${proposedDue.toLocaleDateString()}
 Ngày duyệt: ${approvedAt ? approvedAt.toLocaleString() : "-"}
 Ngày trả: ${returnedAt ? returnedAt.toLocaleString() : "-"}
+Ngày từ chối: ${rejectedAt ? rejectedAt.toLocaleString() : "-"}
+Ngày gia hạn: ${extendedAt ? extendedAt.toLocaleDateString() : "-"}
       `.trim(),
       createdAt: serverTimestamp()
     };
 
     await addDoc(collection(db, "emailQueue"), emailData);
     console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
-
   } catch (err) {
     console.error("Email queue error:", err);
   }
 }
+
 // EOF
 

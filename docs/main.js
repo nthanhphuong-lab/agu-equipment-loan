@@ -1039,7 +1039,6 @@ function formatDate(timestamp) {
   return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
 }
 
-
 // ================== EMAIL QUEUE ==================
 const statusMap = {
   approved: "Yêu cầu mượn đã được DUYỆT",
@@ -1059,7 +1058,6 @@ async function enqueueEmail(loan, status) {
     const userName = loan.userName || "";
     const quantity = loan.quantity || loan.qty || 0;
 
-    // Các mốc thời gian an toàn
     const proposedStart = loan.startAt?.toDate ? loan.startAt.toDate() : (loan.startAt || new Date());
     const proposedDue = loan.dueAt?.toDate ? loan.dueAt.toDate() : (loan.dueAt || new Date());
     const approvedAt = loan.approvedAt?.toDate ? loan.approvedAt.toDate() : null;
@@ -1085,7 +1083,6 @@ Ngày trả: ${returnedAt ? returnedAt.toLocaleString() : "-"}
       createdAt: serverTimestamp()
     };
 
-    // Sử dụng addDoc để tránh lỗi permission, tạo một bản ghi mới trong collection emailQueue
     await addDoc(collection(db, "emailQueue"), emailData);
     console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
 
@@ -1093,4 +1090,5 @@ Ngày trả: ${returnedAt ? returnedAt.toLocaleString() : "-"}
     console.error("Email queue error:", err);
   }
 }
- //EOF 
+// EOF
+

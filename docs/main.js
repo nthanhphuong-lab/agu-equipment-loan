@@ -521,27 +521,54 @@ function applyLoanFilters(loans){
 // ================== SORT ==================
 function sortLoans(list){
   return list.sort((a, b)=>{
-    const createdA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
-    const createdB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+    // Nếu user đã chọn sắp xếp, áp dụng theo loanSort
+    if(loanSort){
+      const createdA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+      const createdB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
 
-    const dueA = a.dueAt?.toDate ? a.dueAt.toDate() : new Date(a.dueAt || 0);
-    const dueB = b.dueAt?.toDate ? b.dueAt.toDate() : new Date(b.dueAt || 0);
+      const dueA = a.dueAt?.toDate ? a.dueAt.toDate() : new Date(a.dueAt || 0);
+      const dueB = b.dueAt?.toDate ? b.dueAt.toDate() : new Date(b.dueAt || 0);
 
-    switch(loanSort){
-      case "createdAsc":  return createdA - createdB;
-      case "createdDesc": return createdB - createdA;
-      case "equipmentAsc":  return (a.equipmentName || "").localeCompare(b.equipmentName || "");
-      case "equipmentDesc": return (b.equipmentName || "").localeCompare(a.equipmentName || "");
-      case "userAsc": return (a.userName || "").localeCompare(b.userName || "");
-      case "userDesc": return (b.userName || "").localeCompare(a.userName || "");
-      case "statusAsc": return (a.status || "").localeCompare(b.status || "");
-      case "statusDesc": return (b.status || "").localeCompare(a.status || "");
-      case "dueAsc": return dueA - dueB;
-      case "dueDesc": return dueB - dueA;
+      switch(loanSort){
+        case "createdAsc":  return createdA - createdB;
+        case "createdDesc": return createdB - createdA;
+        case "equipmentAsc":  return (a.equipmentName || "").localeCompare(b.equipmentName || "");
+        case "equipmentDesc": return (b.equipmentName || "").localeCompare(a.equipmentName || "");
+        case "userAsc": return (a.userName || "").localeCompare(b.userName || "");
+        case "userDesc": return (b.userName || "").localeCompare(a.userName || "");
+        case "statusAsc": return (a.status || "").localeCompare(b.status || "");
+        case "statusDesc": return (b.status || "").localeCompare(a.status || "");
+        case "dueAsc": return dueA - dueB;
+        case "dueDesc": return dueB - dueA;
+      }
     }
-    return 0;
+
+    // Sắp xếp mặc định theo trạng thái + thời gian hành động
+    const statusOrder = {
+      pending: 0,
+      approved: 1,
+      extended: 2,
+      returned: 3,
+      rejected: 4
+    };
+    const getActionTime = (loan) => {
+      if(loan.status === "pending") return loan.createdAt?.toDate ? loan.createdAt.toDate() : new Date(loan.createdAt || 0);
+      if(loan.status === "approved") return loan.approvedAt?.toDate ? loan.approvedAt.toDate() : new Date();
+      if(loan.status === "extended") return loan.extendedAt?.toDate ? loan.extendedAt.toDate() : new Date();
+      if(loan.status === "returned") return loan.returnedAt?.toDate ? loan.returnedAt.toDate() : new Date();
+      if(loan.status === "rejected") return loan.rejectedAt?.toDate ? loan.rejectedAt.toDate() : new Date();
+      return new Date(0);
+    };
+
+    // So sánh trạng thái trước
+    const diffStatus = (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
+    if(diffStatus !== 0) return diffStatus;
+
+    // Nếu cùng trạng thái, so sánh thời gian hành động (mới nhất lên trên)
+    return getActionTime(b) - getActionTime(a);
   });
 }
+
 
 // ================== DISPLAY ==================
 window.displayLoans = function(list, targetEl){

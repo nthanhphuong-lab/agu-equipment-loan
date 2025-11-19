@@ -397,7 +397,7 @@ function renderLoanCard(id, d, adminView) {
     <div class="${statusClass}">Trạng thái: ${displayStatus}</div>
     <div>Ghi chú: ${d.note || ""}</div>
     ${(d.requestedStart || d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
-   // ${(d.startAt || d.dueAt) ? `<div>Thực tế: ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>` : ""}
+    
     ${adminControls || userControls}
   </div>`;
 }

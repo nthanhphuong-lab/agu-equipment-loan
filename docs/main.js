@@ -1046,28 +1046,40 @@ console.error("enqueueEmail: loan or loan.id is missing");
 return;
 }
 
+// ================== EMAIL QUEUE ==================
+const statusMap = {
+  approved: "Yêu cầu mượn đã được DUYỆT",
+  rejected: "Yêu cầu mượn đã bị TỪ CHỐI",
+  returned: "Xác nhận ĐÃ TRẢ thiết bị",
+  extended: "Gia hạn mượn thiết bị"
+};
 
-const toEmail = loan.userEmail || "";
-const userName = loan.userName || "";
-const quantity = loan.quantity || loan.qty || 0;
+async function enqueueEmail(loan, status) {
+  try {
+    if (!loan || !loan.id) {
+      console.error("enqueueEmail: loan or loan.id is missing");
+      return;
+    }
 
-// Các mốc thời gian an toàn
-const proposedStart = loan.startAt?.toDate ? loan.startAt.toDate() : (loan.startAt || new Date());
-const proposedDue = loan.dueAt?.toDate ? loan.dueAt.toDate() : (loan.dueAt || new Date());
-const approvedAt = loan.approvedAt?.toDate ? loan.approvedAt.toDate() : null;
-const returnedAt = loan.returnedAt?.toDate ? loan.returnedAt.toDate() : null;
+    const toEmail = loan.userEmail || "";
+    const userName = loan.userName || "";
+    const quantity = loan.quantity || loan.qty || 0;
 
-const emailData = {
-  loanId: loan.id,
-  userEmail: toEmail,
-  userName: userName,
-  equipmentName: loan.equipmentName || "",
-  qty: quantity,
-  type: status,
-  subject: statusMap[status] || "",
-  body: `
+    // Các mốc thời gian an toàn
+    const proposedStart = loan.startAt?.toDate ? loan.startAt.toDate() : (loan.startAt || new Date());
+    const proposedDue = loan.dueAt?.toDate ? loan.dueAt.toDate() : (loan.dueAt || new Date());
+    const approvedAt = loan.approvedAt?.toDate ? loan.approvedAt.toDate() : null;
+    const returnedAt = loan.returnedAt?.toDate ? loan.returnedAt.toDate() : null;
 
-
+    const emailData = {
+      loanId: loan.id,
+      userEmail: toEmail,
+      userName: userName,
+      equipmentName: loan.equipmentName || "",
+      qty: quantity,
+      type: status,
+      subject: statusMap[status] || "",
+      body: `
 Thiết bị: ${loan.equipmentName || "(Không có)"}
 Số lượng: ${quantity}
 Trạng thái: ${status}
@@ -1075,19 +1087,17 @@ Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
 Ngày đề xuất: ${proposedStart.toLocaleDateString()} → ${proposedDue.toLocaleDateString()}
 Ngày duyệt: ${approvedAt ? approvedAt.toLocaleString() : "-"}
 Ngày trả: ${returnedAt ? returnedAt.toLocaleString() : "-"}
-`.trim(),
-createdAt: serverTimestamp()
-};
+      `.trim(),
+      createdAt: serverTimestamp()
+    };
 
+    // Sử dụng addDoc để tránh lỗi permission, tạo một bản ghi mới trong collection emailQueue
+    await addDoc(collection(db, "emailQueue"), emailData);
+    console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
 
-// Sử dụng addDoc để tránh lỗi permission, tạo một bản ghi mới trong collection emailQueue
-await addDoc(collection(db, "emailQueue"), emailData);
-console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
-```
-
-} catch (err) {
-console.error("Email queue error:", err);
-}
+  } catch (err) {
+    console.error("Email queue error:", err);
+  }
 }
 
 // EOF

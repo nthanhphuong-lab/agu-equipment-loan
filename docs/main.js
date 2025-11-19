@@ -625,6 +625,48 @@ allLoans.innerHTML = "<p>Không tải được dữ liệu.</p>";
 }
 }
 
+// ==================== MODAL CHI TIẾT YÊU CẦU ====================
+const loanModal = document.getElementById("loanModal");
+
+// Đóng modal khi click X
+loanModal.querySelector(".close").onclick = () => {
+  loanModal.style.display = "none";
+};
+
+// Click ngoài modal cũng đóng
+window.onclick = (e) => {
+  if(e.target.id === "loanModal") loanModal.style.display = "none";
+};
+
+// Bind các nút hành động
+function bindLoanActions(loanId){
+  document.getElementById("approveBtn").onclick = () => { approveLoanWithDates(loanId); loanModal.style.display="none"; };
+  document.getElementById("rejectBtn").onclick = () => { rejectLoan(loanId); loanModal.style.display="none"; };
+  document.getElementById("extendBtn").onclick = () => { extendLoan(loanId); loanModal.style.display="none"; };
+  document.getElementById("returnBtn").onclick = () => { returnLoanWithTime(loanId); loanModal.style.display="none"; };
+}
+
+// Mở modal với chi tiết yêu cầu
+function openLoanModal(loanId){
+  const loanRef = doc(db,"loans",loanId);
+  getDoc(loanRef).then(docSnap=>{
+    if(!docSnap.exists()) return;
+    const loan = docSnap.data();
+    loanModal.querySelector(".modal-title").textContent = loan.equipmentName || "Thiết bị";
+    loanModal.querySelector(".modal-body").innerHTML = `
+      <p>Người mượn: ${loan.userName || loan.userEmail}</p>
+      <p>Số lượng: ${loan.quantity || 0}</p>
+      <p>Trạng thái: ${loan.status}</p>
+      <p>Ngày đề xuất: ${loan.startAt?.toDate ? loan.startAt.toDate().toLocaleString() : "-"}</p>
+      <p>Ngày trả: ${loan.returnedAt?.toDate ? loan.returnedAt.toDate().toLocaleString() : "-"}</p>
+      <p>Ghi chú Admin: ${loan.adminNote || "(Không có)"}</p>
+    `;
+    loanModal.style.display = "block";
+    bindLoanActions(loanId);
+  });
+}
+
+
 
 // ================== DISPLAY ==================
 window.displayLoans = function(list, targetEl){
@@ -925,29 +967,89 @@ window.deleteLoanAdmin = async (id) => {
 
 
 // ================== STATS ==================
-async function refreshStats(){
-  if (!currentUser) return;
-  statsArea.innerHTML = "Đang tải...";
-  const snap = await getDocs(collection(db,"loans"));
-  const loans = [];
-  snap.forEach(d=>{ if (!d.data().deleted) loans.push(d.data()); });
+async function refreshStats() {
+if (!currentUser) return;
+statsArea.innerHTML = "Đang tải...";
 
-  if (isAdmin){
-    const pending = loans.filter(l=>l.status==="pending").length;
-    const approved = loans.filter(l=>l.status==="approved" && !l.returned).length;
-    const returned = loans.filter(l=>l.returned).length;
-    // thêm thời gian (mốc) — hiển thị last activity
-    const lastActivityTs = loans.map(l=>l.approvedAt||l.createdAt||l.returnedAt).filter(Boolean).sort((a,b)=> (b.toMillis?b.toMillis():0)-(a.toMillis?a.toMillis():0))[0];
-    const lastActivity = lastActivityTs ? (lastActivityTs.toDate? lastActivityTs.toDate().toLocaleString(): new Date(lastActivityTs).toLocaleString()) : 'Chưa có hoạt động';
-    statsArea.innerHTML = `\n      <p>Chờ duyệt: ${pending}</p>\n      <p>Đang mượn: ${approved}</p>\n      <p>Đã trả: ${returned}</p>\n      <p>Hoạt động gần nhất: ${lastActivity}</p>\n    `;
-  } else {
-    const myLoans = loans.filter(l=>l.userId===currentUser.uid);
-    statsArea.innerHTML = myLoans.map(l=>{
-      const t = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString() : (l.createdAt ? new Date(l.createdAt).toLocaleString() : '');
-      return `\n      <div class=\"card\">\n        <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned?" (ĐÃ TRẢ)":""}\n        <br><small>Yêu cầu: ${t}</small>\n      </div>`;
-    }).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
-  }
-}
+try {
+const snap = await getDocs(collection(db, "loans"));
+const loans = [];
+snap.forEach(docSnap => {
+const d = docSnap.data();
+if (!d.deleted) loans.push({ id: docSnap.id, ...d });
+});
+
+if (isAdmin) {
+  // Tính số liệu
+  const pending = loans.filter(l => l.status === "pending").length;
+  const approved = loans.filter(l => l.status === "approved" && !l.returned).length;
+  const returned = loans.filter(l => l.returned).length;
+
+  // Thời gian hoạt động gần nhất
+  const lastActivityTs = loans
+    .map(l => l.approvedAt || l.createdAt || l.returnedAt)
+    .filter(Boolean)
+    .sort((a, b) => (b.toMillis ? b.toMillis() : 0) - (a.toMillis ? a.toMillis() : 0))[0];
+  const lastActivity = lastActivityTs
+    ? lastActivityTs.toDate
+      ? lastActivityTs.toDate().toLocaleString()
+      : new Date(lastActivityTs).toLocaleString()
+    : "Chưa có hoạt động";
+
+  // Render HTML với id để gắn sự kiện
+  statsArea.innerHTML = `
+    <p id="statsPending">Chờ duyệt: ${pending}</p>
+    <p id="statsApproved">Đang mượn: ${approved}</p>
+    <p id="statsReturned">Đã trả: ${returned}</p>
+    <p>Hoạt động gần nhất: ${lastActivity}</p>
+  `;
+
+  // Gắn click event
+  document.getElementById("statsPending").onclick = () => gotoLoanStatus("pending");
+  document.getElementById("statsApproved").onclick = () => gotoLoanStatus("approved");
+  document.getElementById("statsReturned").onclick = () => gotoLoanStatus("returned");
+
+      } else {
+        // User thường
+        const myLoans = loans.filter(l => l.userId === currentUser.uid);
+        statsArea.innerHTML =
+          myLoans
+            .map(l => {
+              const t = l.createdAt?.toDate
+                ? l.createdAt.toDate().toLocaleString()
+                : l.createdAt
+                ? new Date(l.createdAt).toLocaleString()
+                : "";
+              return `
+                <div class="card">
+                  <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned ? " (ĐÃ TRẢ)" : ""}
+                  <br><small>Yêu cầu: ${t}</small>
+                </div>
+              `;
+            })
+            .join("") || "<p>Chưa có hoạt động mượn trả.</p>";
+      }
+      
+          
+          } catch (e) {
+          console.error(e);
+          statsArea.innerHTML = "<p>Không tải được dữ liệu.</p>";
+          }
+          }
+          
+    // Hàm scroll tới yêu cầu đầu tiên theo trạng thái
+    function gotoLoanStatus(status) {
+    const loanElements = document.querySelectorAll(".loan-item");
+    for (let el of loanElements) {
+    if (el.dataset.status === status) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("highlight");
+    setTimeout(() => el.classList.remove("highlight"), 3000);
+    break;
+    }
+    }
+    }
+
 
 
 // ================== EXPORT EXCEL / PDF ==================

@@ -1046,7 +1046,7 @@ console.error("enqueueEmail: loan or loan.id is missing");
 return;
 }
 
-```
+
 const toEmail = loan.userEmail || "";
 const userName = loan.userName || "";
 const quantity = loan.quantity || loan.qty || 0;

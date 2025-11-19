@@ -1131,36 +1131,11 @@ async function enqueueEmail(loan, status) {
     const approvedAt = loan.approvedAt?.toDate ? loan.approvedAt.toDate() : null;
     const returnedAt = loan.returnedAt?.toDate ? loan.returnedAt.toDate() : null;
     const rejectedAt = loan.rejectedAt?.toDate ? loan.rejectedAt.toDate() : null;
-    const extendedAt = loan.extendedAt?.toDate ? loan.extendedAt.toDate() : null;
 
-    const emailData = {
-      loanId: loan.id,
-      userEmail: toEmail,
-      userName,
-      equipmentName: loan.equipmentName || "",
-      qty: quantity,
-      type: status,
-      subject: statusMap[status] || "",
-      body: `
-Thiết bị: ${loan.equipmentName || "(Không có)"}
-Số lượng: ${quantity}
-Trạng thái: ${status}
-Ghi chú từ Admin: ${loan.adminNote || "(Không có)"}
-Ngày đề xuất: ${formatDateTime(proposedStart)} → ${formatDateTime(proposedDue)}
-Ngày duyệt: ${formatDateTime(approvedAt)}
-Ngày trả: ${formatDateTime(returnedAt)}
-Ngày từ chối: ${formatDateTime(rejectedAt)}
-Ngày gia hạn: ${formatDateTime(extendedAt)}
-      `.trim(),
-      createdAt: serverTimestamp()
-    };
-
-    await addDoc(collection(db, "emailQueue"), emailData);
-    console.log(`✅ Email queued for loanId=${loan.id}, status=${status}`);
-  } catch (err) {
-    console.error("Email queue error:", err);
-  }
-}
+    // Ngày gia hạn: luôn lấy dueAt cho extended và returned
+    const extendedDate = (status === "extended" || status === "returned")
+      ? proposedDue
+      : (loan.extendedAt?.toDate ? loan.extendedAt.toDate() : null);
 
 
 // EOF

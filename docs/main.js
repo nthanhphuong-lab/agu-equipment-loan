@@ -765,20 +765,19 @@ window.extendLoan = async (id) => {
 
 // ======= XÁC NHẬN ĐÃ TRẢ =======
 window.returnLoanWithTime = async (id) => {
-if (!isAdmin) return alert("Chỉ admin mới xác nhận trả thiết bị.");
+if (!isAdmin) return alert("Chỉ admin mới có quyền xác nhận trả thiết bị.");
 
 const retEl = document.getElementById("ret_at_" + id);
 let retDate = retEl?.value ? new Date(retEl.value) : new Date();
 
 const loanRef = doc(db, "loans", id);
 const loanSnap = await getDoc(loanRef);
-if (!loanSnap.exists()) return alert("Yêu cầu không tồn tại.");
+if (!loanSnap.exists()) return;
 
 const loan = loanSnap.data();
 const startAt = loan.startAt?.toDate ? loan.startAt.toDate() : new Date();
-if (retDate < startAt) retDate = new Date(startAt.getTime() + 60*1000);
+if (retDate < startAt) retDate = new Date(startAt.getTime() + 60 * 1000);
 
-// Lấy thông tin thiết bị
 const eqRef = doc(db, "equipment", loan.equipmentId);
 const eqSnap = await getDoc(eqRef);
 const eq = eqSnap.data();
@@ -792,11 +791,10 @@ status: "returned",
 returned: true,
 returnedAt: Timestamp.fromDate(retDate),
 updatedAt: serverTimestamp(),
-approvedBy: currentUser.email,   // giống duyệt
-approvedAt: serverTimestamp()
+approvedBy: currentUser.email
 });
 
-// Lấy lại loan để enqueue email
+// Lấy lại loan và enqueue email
 const loanSnap2 = await getDoc(loanRef);
 const loanFixed = {
 id,
@@ -811,6 +809,7 @@ await enqueueEmail(loanFixed, "returned");
 await refreshAllLoans();
 await refreshMyLoans();
 };
+
 
 
 // User edit / delete

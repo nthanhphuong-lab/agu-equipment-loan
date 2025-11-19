@@ -354,6 +354,9 @@ function renderLoanCard(id, d, adminView) {
   else if (d.returned) displayStatus = `Đã trả (${fmt(d.startAt)} → ${fmt(d.returnedAt || d.dueAt)})`;
   else if (d.status === "rejected") displayStatus = `Bị từ chối (tạo: ${fmt(d.createdAt)}, từ chối: ${fmt(d.rejectedAt)})`;
 
+  // Hiển thị ghi chú admin (nếu có)
+  let adminNote = d.adminNote ? `<div><strong>Ghi chú admin:</strong> ${d.adminNote}</div>` : "";
+
   // Controls dành cho admin
   let adminControls = "";
   if (adminView) {
@@ -366,7 +369,6 @@ function renderLoanCard(id, d, adminView) {
       </div>`;
     } else if ((d.status === "approved" || d.status === "extended") && !d.returned) {
       adminControls += `<div style="margin-top:6px">
-        <div><em>Thực tế:</em> ${fmt(d.startAt)} → ${fmt(d.dueAt)}</div>
         <label>Gia hạn đến: <input type="date" id="extend_due_${id}"></label>
         <button onclick="extendLoan('${id}')">Gia hạn</button>
         &nbsp; | &nbsp;
@@ -396,10 +398,12 @@ function renderLoanCard(id, d, adminView) {
     <div>Người mượn: ${d.userEmail}</div>
     <div class="${statusClass}">Trạng thái: ${displayStatus}</div>
     <div>Ghi chú: ${d.note || ""}</div>
+    ${adminNote}
     ${(d.requestedStart || d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
     ${adminControls || userControls}
   </div>`;
 }
+
 
 
 
@@ -629,7 +633,6 @@ btnResetLoanFilter.onclick = () => {
   document.getElementById("filterTo").value = '';
   if(isAdmin) refreshAllLoans(); else refreshMyLoans();
 };
-
 // ================== ADMIN LOAN ACTIONS (FULL TIMESTAMPS) ==================  
 
 // ======= DUYỆT YÊU CẦU MƯỢN =======
@@ -650,8 +653,10 @@ window.approveLoanWithDates = async (id) => {
   const eqSnap = await getDoc(eqRef);
   const eq = eqSnap.data();
   if (eq.quantity_available < loan.quantity) return alert("Không đủ thiết bị.");
-
   await updateDoc(eqRef, { quantity_available: eq.quantity_available - loan.quantity });
+
+  // Ghi chú admin (không bắt buộc)
+  const note = prompt("Ghi chú (không bắt buộc):", loan.adminNote || "") || "";
 
   // Cập nhật loan
   await updateDoc(loanRef, {
@@ -662,7 +667,7 @@ window.approveLoanWithDates = async (id) => {
     dueAt: Timestamp.fromDate(due),
     actionAt: serverTimestamp(),
     actionBy: currentUser.email,
-    adminNote: loan.adminNote || ""
+    adminNote: note
   });
 
   const loanSnap2 = await getDoc(loanRef);
@@ -718,7 +723,7 @@ window.rejectLoan = async (id) => {
   await refreshMyLoans();
 };
 
-// ======= GIA HẠN =======
+// ======= GIA HẠN (có ghi chú) =======
 window.extendLoan = async (id) => {
   const newDueEl = document.getElementById("extend_due_" + id);
   if (!newDueEl || !newDueEl.value) return alert("Chọn ngày gia hạn");
@@ -732,6 +737,9 @@ window.extendLoan = async (id) => {
   const newDue = new Date(newDueEl.value + "T23:59:59");
   if (newDue < currentStart) return alert("Ngày gia hạn phải lớn hơn hoặc bằng ngày bắt đầu thực tế.");
 
+  // Ghi chú gia hạn (không bắt buộc)
+  const note = prompt("Ghi chú gia hạn (không bắt buộc):", loan.adminNote || "") || "";
+
   await updateDoc(loanRef, {
     status: "extended",
     dueAt: Timestamp.fromDate(newDue),
@@ -739,6 +747,7 @@ window.extendLoan = async (id) => {
     extendedAt: serverTimestamp(),
     actionAt: serverTimestamp(),
     actionBy: currentUser.email,
+    adminNote: note,
     updatedAt: serverTimestamp()
   });
 
@@ -753,13 +762,15 @@ window.extendLoan = async (id) => {
     equipmentName: eq.name || "",
     qty: loan.quantity || 0,
     userEmail: loan.userEmail || "",
-    userName: loan.userName || ""
+    userName: loan.userName || "",
+    adminNote: note
   };
 
   await enqueueEmail(loanFixed, "extended");
   await refreshAllLoans();
   await refreshMyLoans();
 };
+
 
 // ======= XÁC NHẬN ĐÃ TRẢ =======
 window.returnLoanWithTime = async (id) => {
@@ -789,8 +800,7 @@ window.returnLoanWithTime = async (id) => {
     returnedBy: currentUser.email,
     actionAt: serverTimestamp(),
     actionBy: currentUser.email,
-    updatedAt: serverTimestamp(),
-    approvedBy: currentUser.email
+    updatedAt: serverTimestamp()
   });
 
   const loanSnap2 = await getDoc(loanRef);
@@ -807,6 +817,7 @@ window.returnLoanWithTime = async (id) => {
   await refreshAllLoans();
   await refreshMyLoans();
 };
+
 
 // User edit / delete
 window.editMyLoan = async (id)=>{

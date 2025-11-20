@@ -976,6 +976,7 @@ window.deleteLoanAdmin = async (id) => {
     alert("Không thể xóa. Vui lòng thử lại.");
   }
 };
+
 // ================== STATS ==================
 async function refreshStats(){
   if (!currentUser) return;
@@ -984,7 +985,9 @@ async function refreshStats(){
   const loanList  = document.getElementById("loan-list");
   if (!statsArea || !loanList) return;
 
+  loanList.innerHTML = ""; // Bỏ danh sách ban đầu
   statsArea.innerHTML = "Đang tải...";
+
   const snap = await getDocs(collection(db,"loans"));
   const loans = [];
   snap.forEach(d => { if (!d.data().deleted) loans.push({id: d.id, ...d.data()}); });
@@ -993,7 +996,7 @@ async function refreshStats(){
     const pending  = loans.filter(l => l.status==="pending").length;
     const approved = loans.filter(l => l.status==="approved" && !l.returned).length;
     const returned = loans.filter(l => l.returned).length;
-    const rejected = loans.filter(l => l.status === "rejected").length;
+    const rejected = loans.filter(l => l.status==="rejected").length;
 
     const lastActivityTs = loans.map(l=>l.approvedAt||l.createdAt||l.returnedAt)
       .filter(Boolean)
@@ -1002,7 +1005,7 @@ async function refreshStats(){
       (lastActivityTs.toDate ? lastActivityTs.toDate().toLocaleString() : new Date(lastActivityTs).toLocaleString())
       : "Chưa có hoạt động";
 
-    // HIỂN THỊ THỐNG KÊ CÓ CLICK
+    // Chỉ hiển thị số liệu thống kê
     statsArea.innerHTML = `
       <div style="cursor:pointer;" id="stats-pending">Chờ duyệt: <span>${pending}</span></div>
       <div style="cursor:pointer;" id="stats-borrowing">Đang mượn: <span>${approved}</span></div>
@@ -1012,13 +1015,10 @@ async function refreshStats(){
     `;
 
     // GẮN SỰ KIỆN CLICK
-    document.getElementById("stats-pending").onclick  = () => showLoansByStatus("pending");
-    document.getElementById("stats-borrowing").onclick = () => showLoansByStatus("approved");
-    document.getElementById("stats-returned").onclick  = () => showLoansByStatus("returned");
-    document.getElementById("stats-rejected").onclick = () => showLoansByStatus("rejected");
-
-    // Hiển thị tất cả thẻ loan admin
-    loanList.innerHTML = loans.map(l => renderLoanCard(l.id, l, true)).join("");
+    document.getElementById("stats-pending").onclick  = () => showLoansByStatus("pending", loans);
+    document.getElementById("stats-borrowing").onclick = () => showLoansByStatus("approved", loans);
+    document.getElementById("stats-returned").onclick  = () => showLoansByStatus("returned", loans);
+    document.getElementById("stats-rejected").onclick  = () => showLoansByStatus("rejected", loans);
 
   } else {
     // USER — chỉ xem danh sách của mình
@@ -1035,23 +1035,32 @@ async function refreshStats(){
 }
 
 // ================== SHOW LOANS BY STATUS ==================
-function showLoansByStatus(status){
+function showLoansByStatus(status, allLoans){
   const container = document.getElementById("loan-list");
   if (!container) return;
 
-  const allCards = container.querySelectorAll(".loan-item");
-  let found = false;
-
-  allCards.forEach(card => {
-    if (card.dataset.status === status){
-      card.scrollIntoView({ behavior: "smooth", block: "center" });
-      card.classList.add("highlight-loan");
-      setTimeout(()=> card.classList.remove("highlight-loan"), 3000);
-      found = true;
-    }
+  // Lọc danh sách theo trạng thái
+  const filtered = allLoans.filter(l => {
+    if (status === "approved") return l.status==="approved" && !l.returned;
+    else if (status === "returned") return l.returned;
+    else return l.status === status;
   });
 
-  if (!found) alert("Không tìm thấy yêu cầu thuộc nhóm này!");
+  if (filtered.length === 0){
+    container.innerHTML = "<p>Không tìm thấy yêu cầu thuộc nhóm này!</p>";
+    return;
+  }
+
+  // Hiển thị
+  container.innerHTML = filtered.map(l => renderLoanCard(l.id, l, true)).join("");
+
+  // Cuộn lên card đầu tiên
+  const first = container.querySelector(".loan-item");
+  if (first){
+    first.scrollIntoView({ behavior: "smooth", block: "center" });
+    first.classList.add("highlight-loan");
+    setTimeout(()=> first.classList.remove("highlight-loan"), 3000);
+  }
 }
 
 

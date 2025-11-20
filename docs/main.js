@@ -346,7 +346,7 @@ function renderLoanCard(id, d, adminView) {
     catch(e){ return "-"; }
   };
 
-  // Xác định văn bản hiển thị trạng thái kèm thời gian
+  // Xác định văn bản hiển thị trạng thái
   let displayStatus = "";
   if (d.status === "pending") displayStatus = `Chờ duyệt (tạo: ${fmt(d.createdAt)})`;
   else if (d.status === "approved" && !d.returned) displayStatus = `Đang mượn (${fmt(d.startAt)} → ${fmt(d.dueAt)})`;
@@ -354,10 +354,10 @@ function renderLoanCard(id, d, adminView) {
   else if (d.returned) displayStatus = `Đã trả (${fmt(d.startAt)} → ${fmt(d.returnedAt || d.dueAt)})`;
   else if (d.status === "rejected") displayStatus = `Bị từ chối (tạo: ${fmt(d.createdAt)}, từ chối: ${fmt(d.rejectedAt)})`;
 
-  // Hiển thị ghi chú admin (nếu có)
+  // Ghi chú admin
   let adminNote = d.adminNote ? `<div><strong>Ghi chú admin:</strong> ${d.adminNote}</div>` : "";
 
-  // Controls dành cho admin
+  // Controls admin
   let adminControls = "";
   if (adminView) {
     if (d.status === "pending") {
@@ -383,7 +383,7 @@ function renderLoanCard(id, d, adminView) {
     }
   }
 
-  // Controls dành cho user (chỉ khi pending)
+  // User controls
   let userControls = "";
   if (!adminView && d.status === "pending" && d.userEmail === currentUser.email) {
     userControls += `<div style="margin-top:6px">
@@ -392,18 +392,22 @@ function renderLoanCard(id, d, adminView) {
     </div>`;
   }
 
-  // Kết hợp nội dung card
-  return `<div class="card">
-    <div><strong>${d.equipmentName || d.equipmentId}</strong> - SL: ${d.quantity}</div>
-    <div>Người mượn: ${d.userEmail}</div>
-    <div class="${statusClass}">Trạng thái: ${displayStatus}</div>
-    <div>Ghi chú: ${d.note || ""}</div>
-    ${adminNote}
-    ${(d.requestedStart || d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
-    ${adminControls || userControls}
-  </div>`;
+  // 🔥🔥🔥 THẺ CARD CHUẨN ĐỂ MENU THỐNG KÊ CLICK ĐƯỢC 🔥🔥🔥
+  return `
+    <div class="card loan-item"
+         data-id="${id}"
+         data-status="${d.returned ? 'returned' : d.status}">
+         
+      <div><strong>${d.equipmentName || d.equipmentId}</strong> - SL: ${d.quantity}</div>
+      <div>Người mượn: ${d.userEmail}</div>
+      <div class="${statusClass}">Trạng thái: ${displayStatus}</div>
+      <div>Ghi chú: ${d.note || ""}</div>
+      ${adminNote}
+      ${(d.requestedStart || d.requestedDue) ? `<div>Đề xuất: ${fmt(d.requestedStart)} → ${fmt(d.requestedDue)}</div>` : ""}
+      ${adminControls || userControls}
+    </div>
+  `;
 }
-
 
 
 

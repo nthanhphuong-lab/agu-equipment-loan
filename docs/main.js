@@ -976,46 +976,51 @@ window.deleteLoanAdmin = async (id) => {
     alert("Không thể xóa. Vui lòng thử lại.");
   }
 };
-
-
 // ================== STATS ==================
 async function refreshStats(){
   if (!currentUser) return;
+
+  const statsArea = document.getElementById("stats-summary");
+  const loanList  = document.getElementById("loan-list");
+  if (!statsArea || !loanList) return;
+
   statsArea.innerHTML = "Đang tải...";
   const snap = await getDocs(collection(db,"loans"));
   const loans = [];
-  snap.forEach(d=>{ if (!d.data().deleted) loans.push({id: d.id, ...d.data()}); });
+  snap.forEach(d => { if (!d.data().deleted) loans.push({id: d.id, ...d.data()}); });
 
   if (isAdmin){
-    const pending = loans.filter(l=>l.status==="pending").length;
-    const approved = loans.filter(l=>l.status==="approved" && !l.returned).length;
-    const returned = loans.filter(l=>l.returned).length;
+    const pending  = loans.filter(l => l.status==="pending").length;
+    const approved = loans.filter(l => l.status==="approved" && !l.returned).length;
+    const returned = loans.filter(l => l.returned).length;
 
     const lastActivityTs = loans.map(l=>l.approvedAt||l.createdAt||l.returnedAt)
       .filter(Boolean)
       .sort((a,b)=>(b.toMillis?b.toMillis():0)-(a.toMillis? a.toMillis():0))[0];
     const lastActivity = lastActivityTs ?
-        (lastActivityTs.toDate? lastActivityTs.toDate().toLocaleString() : new Date(lastActivityTs).toLocaleString())
-        : "Chưa có hoạt động";
+      (lastActivityTs.toDate ? lastActivityTs.toDate().toLocaleString() : new Date(lastActivityTs).toLocaleString())
+      : "Chưa có hoạt động";
 
-      // HIỂN THỊ CÓ CLICK
-  statsArea.innerHTML = `
-    <div style="cursor:pointer;" id="stats-pending">Chờ duyệt: <span>${pending}</span></div>
-    <div style="cursor:pointer;" id="stats-borrowing">Đang mượn: <span>${approved}</span></div>
-    <div style="cursor:pointer;" id="stats-returned">Đã trả: <span>${returned}</span></div>
-    <div>Hoạt động gần nhất: ${lastActivity}</div>
-  `;
-  
-  // GẮN SỰ KIỆN CLICK
-  document.getElementById("stats-pending").onclick = () => gotoLoanStatus("pending");
-  document.getElementById("stats-borrowing").onclick = () => gotoLoanStatus("approved");
-  document.getElementById("stats-returned").onclick = () => gotoLoanStatus("returned");
+    // HIỂN THỊ THỐNG KÊ CÓ CLICK
+    statsArea.innerHTML = `
+      <div style="cursor:pointer;" id="stats-pending">Chờ duyệt: <span>${pending}</span></div>
+      <div style="cursor:pointer;" id="stats-borrowing">Đang mượn: <span>${approved}</span></div>
+      <div style="cursor:pointer;" id="stats-returned">Đã trả: <span>${returned}</span></div>
+      <div>Hoạt động gần nhất: ${lastActivity}</div>
+    `;
 
+    // GẮN SỰ KIỆN CLICK
+    document.getElementById("stats-pending").onclick  = () => showLoansByStatus("pending");
+    document.getElementById("stats-borrowing").onclick = () => showLoansByStatus("approved");
+    document.getElementById("stats-returned").onclick  = () => showLoansByStatus("returned");
+
+    // Hiển thị tất cả thẻ loan admin
+    loanList.innerHTML = loans.map(l => renderLoanCard(l.id, l, true)).join("");
 
   } else {
-    // USER — không click
-    const myLoans = loans.filter(l=>l.userId===currentUser.uid);
-    statsArea.innerHTML = myLoans.map(l=>{
+    // USER — chỉ xem danh sách của mình
+    const myLoans = loans.filter(l => l.userId === currentUser.uid);
+    loanList.innerHTML = myLoans.map(l=>{
       const t = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString() : "";
       return `
         <div class="card">
@@ -1026,22 +1031,28 @@ async function refreshStats(){
   }
 }
 
-// ================== GOTO STATUS ==================
-function gotoLoanStatus(status){
-  const container = document.getElementById("allLoans"); // danh sách admin
+// ================== SHOW LOANS BY STATUS ==================
+function showLoansByStatus(status){
+  const container = document.getElementById("loan-list");
   if (!container) return;
 
-  const target = container.querySelector(`.loan-item[data-status="${status}"]`);
-  if (!target){
-    alert("Không tìm thấy yêu cầu thuộc nhóm này!");
-    return;
-  }
+  const allCards = container.querySelectorAll(".loan-item");
+  let found = false;
 
-  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  allCards.forEach(card => {
+    if (card.dataset.status === status){
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.classList.add("highlight-loan");
+      setTimeout(()=> card.classList.remove("highlight-loan"), 3000);
+      found = true;
+    }
+  });
 
-  target.classList.add("highlight-loan");
-  setTimeout(()=> target.classList.remove("highlight-loan"), 3000);
+  if (!found) alert("Không tìm thấy yêu cầu thuộc nhóm này!");
 }
+
+
+
 
 
 // ================== EXPORT EXCEL / PDF ==================

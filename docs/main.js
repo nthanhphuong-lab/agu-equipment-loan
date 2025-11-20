@@ -998,18 +998,19 @@ async function refreshStats(){
         (lastActivityTs.toDate? lastActivityTs.toDate().toLocaleString() : new Date(lastActivityTs).toLocaleString())
         : "Chưa có hoạt động";
 
-    // HIỂN THỊ CÓ CLICK
-    statsArea.innerHTML = `
-      <p id="statsPending"  class="stats-link">Chờ duyệt: ${pending}</p>
-      <p id="statsApproved" class="stats-link">Đang mượn: ${approved}</p>
-      <p id="statsReturned" class="stats-link">Đã trả: ${returned}</p>
-      <p>Hoạt động gần nhất: ${lastActivity}</p>
-    `;
+      // HIỂN THỊ CÓ CLICK
+  statsArea.innerHTML = `
+    <div style="cursor:pointer;" id="stats-pending">Chờ duyệt: <span>${pending}</span></div>
+    <div style="cursor:pointer;" id="stats-borrowing">Đang mượn: <span>${approved}</span></div>
+    <div style="cursor:pointer;" id="stats-returned">Đã trả: <span>${returned}</span></div>
+    <div>Hoạt động gần nhất: ${lastActivity}</div>
+  `;
+  
+  // GẮN SỰ KIỆN CLICK
+  document.getElementById("stats-pending").onclick = () => gotoLoanStatus("pending");
+  document.getElementById("stats-borrowing").onclick = () => gotoLoanStatus("approved");
+  document.getElementById("stats-returned").onclick = () => gotoLoanStatus("returned");
 
-    // GẮN SỰ KIỆN CLICK
-    document.getElementById("statsPending").onclick  = ()=> gotoLoanStatus("pending");
-    document.getElementById("statsApproved").onclick = ()=> gotoLoanStatus("approved");
-    document.getElementById("statsReturned").onclick = ()=> gotoLoanStatus("returned");
 
   } else {
     // USER — không click

@@ -1015,7 +1015,7 @@ async function refreshStats(){
     document.getElementById("stats-pending").onclick  = () => showLoansByStatus("pending");
     document.getElementById("stats-borrowing").onclick = () => showLoansByStatus("approved");
     document.getElementById("stats-returned").onclick  = () => showLoansByStatus("returned");
-    document.getElementById("stats-rejected").onclick = () => gotoLoanStatus("rejected");
+    document.getElementById("stats-rejected").onclick = () => showLoansByStatus("rejected");
 
     // Hiển thị tất cả thẻ loan admin
     loanList.innerHTML = loans.map(l => renderLoanCard(l.id, l, true)).join("");

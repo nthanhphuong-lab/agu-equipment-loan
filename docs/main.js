@@ -980,7 +980,7 @@ window.deleteLoanAdmin = async (id) => {
 async function refreshStats(){
   if (!currentUser) return;
 
-  const statsArea = document.getElementById("stats-summary");
+  const statsArea = document.getElementById("statsArea");
   const loanList  = document.getElementById("loan-list");
   if (!statsArea || !loanList) return;
 

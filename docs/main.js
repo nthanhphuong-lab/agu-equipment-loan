@@ -671,8 +671,16 @@ function openLoanModal(loanId){
 // ================== DISPLAY ==================
 window.displayLoans = function(list, targetEl){
   targetEl.innerHTML = "";
-  list.forEach(l => targetEl.innerHTML += renderLoanCard(l.id, l, isAdmin));
+  list.forEach(l => {
+    const html = renderLoanCard(l.id, l, isAdmin);
+    targetEl.innerHTML += `
+      <div class="loan-item" data-status="${l.status}" id="loan-${l.id}">
+        ${html}
+      </div>
+    `;
+  });
 };
+
 
 
 // ================== RENDER LOANS ==================
@@ -967,89 +975,68 @@ window.deleteLoanAdmin = async (id) => {
 
 
 // ================== STATS ==================
-async function refreshStats() {
-if (!currentUser) return;
-statsArea.innerHTML = "Đang tải...";
+async function refreshStats(){
+  if (!currentUser) return;
+  statsArea.innerHTML = "Đang tải...";
+  const snap = await getDocs(collection(db,"loans"));
+  const loans = [];
+  snap.forEach(d=>{ if (!d.data().deleted) loans.push({id: d.id, ...d.data()}); });
 
-try {
-const snap = await getDocs(collection(db, "loans"));
-const loans = [];
-snap.forEach(docSnap => {
-const d = docSnap.data();
-if (!d.deleted) loans.push({ id: docSnap.id, ...d });
-});
+  if (isAdmin){
+    const pending = loans.filter(l=>l.status==="pending").length;
+    const approved = loans.filter(l=>l.status==="approved" && !l.returned).length;
+    const returned = loans.filter(l=>l.returned).length;
 
-if (isAdmin) {
-  // Tính số liệu
-  const pending = loans.filter(l => l.status === "pending").length;
-  const approved = loans.filter(l => l.status === "approved" && !l.returned).length;
-  const returned = loans.filter(l => l.returned).length;
+    const lastActivityTs = loans.map(l=>l.approvedAt||l.createdAt||l.returnedAt)
+      .filter(Boolean)
+      .sort((a,b)=>(b.toMillis?b.toMillis():0)-(a.toMillis? a.toMillis():0))[0];
+    const lastActivity = lastActivityTs ?
+        (lastActivityTs.toDate? lastActivityTs.toDate().toLocaleString() : new Date(lastActivityTs).toLocaleString())
+        : "Chưa có hoạt động";
 
-  // Thời gian hoạt động gần nhất
-  const lastActivityTs = loans
-    .map(l => l.approvedAt || l.createdAt || l.returnedAt)
-    .filter(Boolean)
-    .sort((a, b) => (b.toMillis ? b.toMillis() : 0) - (a.toMillis ? a.toMillis() : 0))[0];
-  const lastActivity = lastActivityTs
-    ? lastActivityTs.toDate
-      ? lastActivityTs.toDate().toLocaleString()
-      : new Date(lastActivityTs).toLocaleString()
-    : "Chưa có hoạt động";
+    // HIỂN THỊ CÓ CLICK
+    statsArea.innerHTML = `
+      <p id="statsPending"  class="stats-link">Chờ duyệt: ${pending}</p>
+      <p id="statsApproved" class="stats-link">Đang mượn: ${approved}</p>
+      <p id="statsReturned" class="stats-link">Đã trả: ${returned}</p>
+      <p>Hoạt động gần nhất: ${lastActivity}</p>
+    `;
 
-  // Render HTML với id để gắn sự kiện
-  statsArea.innerHTML = `
-    <p id="statsPending">Chờ duyệt: ${pending}</p>
-    <p id="statsApproved">Đang mượn: ${approved}</p>
-    <p id="statsReturned">Đã trả: ${returned}</p>
-    <p>Hoạt động gần nhất: ${lastActivity}</p>
-  `;
+    // GẮN SỰ KIỆN CLICK
+    document.getElementById("statsPending").onclick  = ()=> gotoLoanStatus("pending");
+    document.getElementById("statsApproved").onclick = ()=> gotoLoanStatus("approved");
+    document.getElementById("statsReturned").onclick = ()=> gotoLoanStatus("returned");
 
-  // Gắn click event
-  document.getElementById("statsPending").onclick = () => gotoLoanStatus("pending");
-  document.getElementById("statsApproved").onclick = () => gotoLoanStatus("approved");
-  document.getElementById("statsReturned").onclick = () => gotoLoanStatus("returned");
+  } else {
+    // USER — không click
+    const myLoans = loans.filter(l=>l.userId===currentUser.uid);
+    statsArea.innerHTML = myLoans.map(l=>{
+      const t = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString() : "";
+      return `
+        <div class="card">
+          <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned?" (ĐÃ TRẢ)":""}
+          <br><small>Yêu cầu: ${t}</small>
+        </div>`;
+    }).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
+  }
+}
 
-      } else {
-        // User thường
-        const myLoans = loans.filter(l => l.userId === currentUser.uid);
-        statsArea.innerHTML =
-          myLoans
-            .map(l => {
-              const t = l.createdAt?.toDate
-                ? l.createdAt.toDate().toLocaleString()
-                : l.createdAt
-                ? new Date(l.createdAt).toLocaleString()
-                : "";
-              return `
-                <div class="card">
-                  <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned ? " (ĐÃ TRẢ)" : ""}
-                  <br><small>Yêu cầu: ${t}</small>
-                </div>
-              `;
-            })
-            .join("") || "<p>Chưa có hoạt động mượn trả.</p>";
-      }
-      
-          
-          } catch (e) {
-          console.error(e);
-          statsArea.innerHTML = "<p>Không tải được dữ liệu.</p>";
-          }
-          }
-          
-    // Hàm scroll tới yêu cầu đầu tiên theo trạng thái
-    function gotoLoanStatus(status) {
-    const loanElements = document.querySelectorAll(".loan-item");
-    for (let el of loanElements) {
-    if (el.dataset.status === status) {
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    el.classList.add("highlight");
-    setTimeout(() => el.classList.remove("highlight"), 3000);
-    break;
-    }
-    }
-    }
+// ================== GOTO STATUS ==================
+function gotoLoanStatus(status){
+  const container = document.getElementById("allLoans"); // danh sách admin
+  if (!container) return;
 
+  const target = container.querySelector(`.loan-item[data-status="${status}"]`);
+  if (!target){
+    alert("Không tìm thấy yêu cầu thuộc nhóm này!");
+    return;
+  }
+
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  target.classList.add("highlight-loan");
+  setTimeout(()=> target.classList.remove("highlight-loan"), 3000);
+}
 
 
 // ================== EXPORT EXCEL / PDF ==================

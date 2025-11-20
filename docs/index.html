@@ -163,17 +163,29 @@
     </div>
   </section>
 
-  <!-- 6) Thống kê -->
-  <section id="page-stats" class="page hidden">
+ <section id="page-stats" class="page hidden">
+  <div id="stats-summary" style="margin-top: 20px;">
     <h3>Thống kê tổng quan</h3>
-    <div id="statsArea">
-      <p>Chờ duyệt: <b id="stat-pending">0</b></p>
-      <p>Đang mượn: <b id="stat-borrowing">0</b></p>
-      <p>Đã trả: <b id="stat-returned">0</b></p>
-      <p>Hoạt động gần nhất: <b id="stat-last-activity">--</b></p>
+
+    <div style="cursor:pointer;" id="stats-pending">
+      Chờ duyệt: <span id="stats-count-pending">0</span>
     </div>
 
-  </section>
+    <div style="cursor:pointer;" id="stats-borrowing">
+      Đang mượn: <span id="stats-count-borrowing">0</span>
+    </div>
+
+    <div style="cursor:pointer;" id="stats-returned">
+      Đã trả: <span id="stats-count-returned">0</span>
+    </div>
+
+    <div id="stats-last-active" style="margin-top:10px; color:#555;"></div>
+  </div>
+
+  <!-- Vùng hiển thị danh sách khi click -->
+  <div id="loan-list" style="margin-top:12px;"></div>
+</section>
+
 
   <script type="module" src="./main.js"></script>
 

@@ -993,6 +993,7 @@ async function refreshStats(){
     const pending  = loans.filter(l => l.status==="pending").length;
     const approved = loans.filter(l => l.status==="approved" && !l.returned).length;
     const returned = loans.filter(l => l.returned).length;
+    const rejected = loans.filter(l => l.status === "rejected").length;
 
     const lastActivityTs = loans.map(l=>l.approvedAt||l.createdAt||l.returnedAt)
       .filter(Boolean)
@@ -1006,6 +1007,7 @@ async function refreshStats(){
       <div style="cursor:pointer;" id="stats-pending">Chờ duyệt: <span>${pending}</span></div>
       <div style="cursor:pointer;" id="stats-borrowing">Đang mượn: <span>${approved}</span></div>
       <div style="cursor:pointer;" id="stats-returned">Đã trả: <span>${returned}</span></div>
+      <div style="cursor:pointer;" id="stats-rejected">Bị từ chối: <span>${rejected}</span></div>
       <div>Hoạt động gần nhất: ${lastActivity}</div>
     `;
 
@@ -1013,6 +1015,7 @@ async function refreshStats(){
     document.getElementById("stats-pending").onclick  = () => showLoansByStatus("pending");
     document.getElementById("stats-borrowing").onclick = () => showLoansByStatus("approved");
     document.getElementById("stats-returned").onclick  = () => showLoansByStatus("returned");
+    document.getElementById("stats-rejected").onclick = () => gotoLoanStatus("rejected");
 
     // Hiển thị tất cả thẻ loan admin
     loanList.innerHTML = loans.map(l => renderLoanCard(l.id, l, true)).join("");

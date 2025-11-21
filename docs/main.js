@@ -995,7 +995,7 @@ async function refreshStats(){
   if (isAdmin){
     const pending  = loans.filter(l => l.status==="pending").length;
     const approved = loans.filter(l => l.status==="approved" && !l.returned).length;
-    const countRenewing = loans.filter(l => l.status === "renewing" && !l.deleted).length;
+    const renewing = loans.filter(l => l.status === "renewing" && !l.deleted).length;
     const returned = loans.filter(l => l.returned).length;
     const rejected = loans.filter(l => l.status==="rejected").length;
 

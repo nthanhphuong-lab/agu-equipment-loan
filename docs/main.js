@@ -983,10 +983,12 @@ async function refreshStats(){
 
   const statsArea = document.getElementById("statsArea");
   const loanList  = document.getElementById("loan-list");
-  if (!statsArea || !loanList) return;
+   if (!loanList) return;
 
-  loanList.innerHTML = ""; // Bỏ danh sách ban đầu
-  statsArea.innerHTML = "Đang tải...";
+  // 🚫 KHÔNG hiển thị "Đang tải..." cho User — chỉ Admin mới có stats
+  if (isAdmin && statsArea){
+      statsArea.innerHTML = "Đang tải...";
+  }
 
   const snap = await getDocs(collection(db,"loans"));
   const loans = [];

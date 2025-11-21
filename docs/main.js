@@ -1026,18 +1026,36 @@ async function refreshStats(){
     document.getElementById("stats-rejected").onclick  = () => showLoansByStatus("rejected", loans);
 
   } else {
-    // USER — chỉ xem danh sách của mình
+    // USER — thống kê riêng + danh sách riêng
     const myLoans = loans.filter(l => l.userId === currentUser.uid);
-    loanList.innerHTML = myLoans.map(l=>{
-      const t = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString() : "";
-      return `
-        <div class="card">
-          <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned?" (ĐÃ TRẢ)":""}
-          <br><small>Yêu cầu: ${t}</small>
-        </div>`;
+
+    const pending  = myLoans.filter(l => l.status==="pending").length;
+    const borrowing = myLoans.filter(l => l.status==="approved" && !l.returned).length;
+    const renewing = myLoans.filter(l => l.status==="renewing").length;
+    const returned = myLoans.filter(l => l.returned).length;
+    const rejected = myLoans.filter(l => l.status==="rejected").length;
+
+    // HIỂN THỊ THỐNG KÊ CHO USER
+    statsArea.innerHTML = `
+        <h3>Thống kê của bạn</h3>
+        <div>Chờ duyệt: <strong>${pending}</strong></div>
+        <div>Đang mượn: <strong>${borrowing}</strong></div>
+        <div>Đang gia hạn: <strong>${renewing}</strong></div>
+        <div>Đã trả: <strong>${returned}</strong></div>
+        <div>Bị từ chối: <strong>${rejected}</strong></div>
+    `;
+
+    // DANH SÁCH CỦA USER
+    loanList.innerHTML = myLoans.map(l => {
+        const t = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString() : "";
+        return `
+            <div class="card">
+                <strong>${l.equipmentName}</strong> - SL: ${l.quantity} - ${l.status}${l.returned?" (ĐÃ TRẢ)":""}
+                <br><small>Yêu cầu: ${t}</small>
+            </div>`;
     }).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
-  }
 }
+
 
 // ================== SHOW LOANS BY STATUS ==================
 function showLoansByStatus(status, allLoans){

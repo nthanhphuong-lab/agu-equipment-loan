@@ -995,6 +995,7 @@ async function refreshStats(){
   if (isAdmin){
     const pending  = loans.filter(l => l.status==="pending").length;
     const approved = loans.filter(l => l.status==="approved" && !l.returned).length;
+    const countRenewing = loans.filter(l => l.status === "renewing" && !l.deleted).length;
     const returned = loans.filter(l => l.returned).length;
     const rejected = loans.filter(l => l.status==="rejected").length;
 
@@ -1009,6 +1010,7 @@ async function refreshStats(){
     statsArea.innerHTML = `
       <div style="cursor:pointer;" id="stats-pending">Chờ duyệt: <span>${pending}</span></div>
       <div style="cursor:pointer;" id="stats-borrowing">Đang mượn: <span>${approved}</span></div>
+      <div style="cursor:pointer;" id="stats-renewing">Đang gia hạn: <span>${renewing}</span></div>
       <div style="cursor:pointer;" id="stats-returned">Đã trả: <span>${returned}</span></div>
       <div style="cursor:pointer;" id="stats-rejected">Bị từ chối: <span>${rejected}</span></div>
       <div>Hoạt động gần nhất: ${lastActivity}</div>
@@ -1017,6 +1019,7 @@ async function refreshStats(){
     // GẮN SỰ KIỆN CLICK
     document.getElementById("stats-pending").onclick  = () => showLoansByStatus("pending", loans);
     document.getElementById("stats-borrowing").onclick = () => showLoansByStatus("approved", loans);
+     document.getElementById("stats-renewing").onclick  = () => showLoansByStatus("renewing", loans);
     document.getElementById("stats-returned").onclick  = () => showLoansByStatus("returned", loans);
     document.getElementById("stats-rejected").onclick  = () => showLoansByStatus("rejected", loans);
 

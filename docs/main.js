@@ -1054,8 +1054,8 @@ async function refreshStats(){
                 <br><small>Yêu cầu: ${t}</small>
             </div>`;
     }).join("") || "<p>Chưa có hoạt động mượn trả.</p>";
+  }
 }
-
 
 // ================== SHOW LOANS BY STATUS ==================
 function showLoansByStatus(status, allLoans){
